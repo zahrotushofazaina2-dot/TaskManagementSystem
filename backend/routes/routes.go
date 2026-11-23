@@ -35,16 +35,26 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 	userRepo := repository.NewUserRepository(db)
 	categoryRepo := repository.NewCategoryRepository(db)
 	taskRepo := repository.NewTaskRepository(db)
+	adminDashboardRepo := repository.NewAdminDashboardRepository(db)
+	userDashboardRepo := repository.NewUserDashboardRepository(db)
 
 	// Services
 	authService := service.NewAuthService(userRepo, authCfg)
 	categoryService := service.NewCategoryService(categoryRepo)
 	taskService := service.NewTaskService(taskRepo, categoryRepo)
+	adminUserService := service.NewAdminUserService(userRepo)
+	adminTaskService := service.NewAdminTaskService(taskRepo)
+	adminDashboardService := service.NewAdminDashboardService(adminDashboardRepo)
+	userDashboardService := service.NewUserDashboardService(userDashboardRepo)
 
 	// Handlers
 	authHandler := handler.NewAuthHandler(authService)
 	categoryHandler := handler.NewCategoryHandler(categoryService)
 	taskHandler := handler.NewTaskHandler(taskService)
+	adminUserHandler := handler.NewAdminUserHandler(adminUserService)
+	adminTaskHandler := handler.NewAdminTaskHandler(adminTaskService)
+	adminDashboardHandler := handler.NewAdminDashboardHandler(adminDashboardService)
+	userDashboardHandler := handler.NewUserDashboardHandler(userDashboardService)
 
 	// Middleware
 	authMiddleware := middleware.NewAuthMiddleware(userRepo, authCfg)
@@ -68,6 +78,9 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 	userRoutes.Use(authMiddleware.Authenticate())
 	userRoutes.Use(middleware.RequireRole("USER"))
 	{
+		// User Dashboard
+		userRoutes.GET("/dashboard", userDashboardHandler.GetStats)
+
 		// Category CRUD
 		categories := userRoutes.Group("/categories")
 		{
@@ -86,6 +99,25 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 			tasks.GET("/:id", taskHandler.FindByID)
 			tasks.PUT("/:id", taskHandler.Update)
 			tasks.DELETE("/:id", taskHandler.Delete)
+		}
+	}
+
+	// Protected Admin Routes
+	adminRoutes := router.Group("/api/v1/admin")
+	adminRoutes.Use(authMiddleware.Authenticate())
+	adminRoutes.Use(middleware.RequireRole("ADMIN"))
+
+	adminRoutes.PUT("/users/:id/role", adminUserHandler.UpdateRole)
+	adminRoutes.PUT("/users/:id/status", adminUserHandler.UpdateStatus)
+	adminRoutes.GET("/dashboard", adminDashboardHandler.GetStats)
+
+	{
+		adminRoutes.GET("/tasks", adminTaskHandler.ListTasks)
+
+		users := adminRoutes.Group("/users")
+		{
+			users.GET("", adminUserHandler.ListUsers)
+			users.GET("/:id", adminUserHandler.FindByID)
 		}
 	}
 

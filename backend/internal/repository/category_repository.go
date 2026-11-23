@@ -160,7 +160,24 @@ func (r *CategoryRepository) Update(
 	}
 
 	if affected == 0 {
-		return sql.ErrNoRows
+		// Periksa apakah kategori memang tidak ditemukan.
+		// MySQL dapat mengembalikan 0 jika nilainya tidak berubah.
+		var exists int
+
+		err := r.db.QueryRowContext(
+			ctx,
+			`SELECT 1 FROM categories WHERE id = ? AND user_id = ?`,
+			categoryID,
+			userID,
+		).Scan(&exists)
+
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+
+		if err != nil {
+			return fmt.Errorf("gagal memeriksa kategori: %w", err)
+		}
 	}
 
 	return nil
