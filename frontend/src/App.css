@@ -1,0 +1,320 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&family=Share+Tech+Mono&display=swap');
+
+/* =========================================
+   TASKFLOW // NEO-TOKYO GLOBAL THEME
+========================================= */
+
+:root {
+  --neo-bg: #08090d;
+  --neo-bg-secondary: #0c0e14;
+  --neo-panel: #10131b;
+  --neo-panel-light: #161a24;
+
+  --neo-cyan: #00f0ff;
+  --neo-pink: #ff2e93;
+  --neo-purple: #9d4edd;
+  --neo-blue: #4b7bec;
+  --neo-green: #63f5b0;
+  --neo-red: #ff4566;
+  --neo-yellow: #ffe66d;
+
+  --neo-white: #f4f7ff;
+  --neo-text: #d6d9e6;
+  --neo-muted: #81899b;
+  --neo-dim: #515867;
+
+  --neo-border: rgba(0, 240, 255, 0.12);
+  --neo-border-strong: rgba(0, 240, 255, 0.35);
+
+  --neo-font-display: 'Barlow Condensed', sans-serif;
+  --neo-font-body: 'Inter', sans-serif;
+  --neo-font-mono: 'Share Tech Mono', monospace;
+
+  --neo-glow-cyan: 0 0 15px rgba(0, 240, 255, 0.18);
+  --neo-glow-pink: 0 0 15px rgba(255, 46, 147, 0.18);
+}
+
+/* =========================================
+   RESET
+========================================= */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  min-height: 100%;
+  scroll-behavior: smooth;
+  background: var(--neo-bg);
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  width: 100%;
+  font-family: var(--neo-font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--neo-text);
+  background:
+    radial-gradient(
+      ellipse at 50% 0%,
+      rgba(75, 123, 236, 0.06),
+      transparent 50%
+    ),
+    var(--neo-bg);
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}
+
+::selection {
+  color: var(--neo-bg);
+  background: var(--neo-cyan);
+}
+
+::-moz-selection {
+  color: var(--neo-bg);
+  background: var(--neo-cyan);
+}
+
+/* =========================================
+   GLOBAL TYPOGRAPHY
+========================================= */
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--neo-font-display);
+  color: var(--neo-white);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+p {
+  color: var(--neo-text);
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: var(--neo-cyan);
+  text-decoration: none;
+  transition:
+    color 0.2s ease,
+    opacity 0.2s ease;
+}
+
+a:hover {
+  color: var(--neo-white);
+}
+
+/* =========================================
+   GLOBAL SCROLLBAR
+========================================= */
+
+::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090a0e;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252b38;
+  border: 1px solid rgba(0, 240, 255, 0.12);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--neo-cyan);
+}
+
+/* Firefox */
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #252b38 #090a0e;
+}
+
+/* =========================================
+   GLOBAL UTILITIES
+========================================= */
+
+.neo-mono {
+  font-family: var(--neo-font-mono);
+}
+
+.neo-display {
+  font-family: var(--neo-font-display);
+}
+
+.neo-cyan {
+  color: var(--neo-cyan);
+}
+
+.neo-pink {
+  color: var(--neo-pink);
+}
+
+.neo-purple {
+  color: var(--neo-purple);
+}
+
+.neo-muted {
+  color: var(--neo-muted);
+}
+
+.neo-glow {
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+}
+
+.neo-glow-pink {
+  text-shadow: 0 0 12px rgba(255, 46, 147, 0.35);
+}
+
+/* =========================================
+   GLOBAL LOADING SCREEN
+========================================= */
+
+.loading-screen {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 18px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at center,
+      rgba(0, 240, 255, 0.06),
+      transparent 35%
+    ),
+    var(--neo-bg);
+  color: var(--neo-white);
+  font-family: var(--neo-font-mono);
+}
+
+.loading-screen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.15;
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+.loading-screen::after {
+  content: '';
+  position: absolute;
+  width: 240px;
+  height: 240px;
+  border: 1px solid rgba(0, 240, 255, 0.08);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+.loading-screen > * {
+  position: relative;
+  z-index: 1;
+}
+
+.loading-screen p {
+  font-family: var(--neo-font-mono);
+  font-size: 11px;
+  color: var(--neo-muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+.loading-spinner {
+  width: 42px;
+  height: 42px;
+  border: 2px solid rgba(0, 240, 255, 0.12);
+  border-top-color: var(--neo-cyan);
+  border-right-color: var(--neo-pink);
+  border-radius: 50%;
+  animation: neo-global-spin 0.8s linear infinite;
+  filter: drop-shadow(0 0 7px rgba(0, 240, 255, 0.25));
+}
+
+@keyframes neo-global-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =========================================
+   GLOBAL FOCUS ACCESSIBILITY
+========================================= */
+
+:focus-visible {
+  outline: 2px solid var(--neo-cyan);
+  outline-offset: 3px;
+}
+
+button:focus:not(:focus-visible),
+a:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* =========================================
+   RESPONSIVE GLOBAL
+========================================= */
+
+@media (max-width: 768px) {
+  body {
+    font-size: 13px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+}
+
+/* =========================================
+   REDUCED MOTION
+========================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,35 @@
+
+.page-transition {
+  width: 100%;
+  min-height: 100vh;
+  transform-origin: center top;
+  animation: neo-page-enter .42s cubic-bezier(.2, .8, .2, 1) both;
+  will-change: opacity, transform, filter;
+}
+
+@keyframes neo-page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px);
+    filter: brightness(.65);
+  }
+
+  55% {
+    opacity: 1;
+    filter: brightness(1.15);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-transition {
+    animation: none;
+    transform: none;
+    filter: none;
+  }
+}

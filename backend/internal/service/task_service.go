@@ -103,6 +103,7 @@ func (s *TaskService) Create(
 }
 
 // FindAll mengambil seluruh task milik user.
+// Method ini dipertahankan untuk kompatibilitas.
 func (s *TaskService) FindAll(
 	ctx context.Context,
 	userID int64,
@@ -123,6 +124,111 @@ func (s *TaskService) FindAll(
 	}
 
 	return responses, nil
+}
+
+// ListTasks mengambil task dengan search, filter, sorting, dan pagination.
+func (s *TaskService) ListTasks(
+	ctx context.Context,
+	userID int64,
+	filter repository.TaskListFilter,
+) (*dto.TaskListResponse, error) {
+	if userID < 1 {
+		return nil, errors.New("user ID tidak valid")
+	}
+
+	// Default pagination.
+	if filter.Page == 0 {
+		filter.Page = 1
+	}
+	if filter.Page < 1 {
+		return nil, errors.New("page minimal 1")
+	}
+
+	if filter.Limit == 0 {
+		filter.Limit = 10
+	}
+	if filter.Limit < 1 || filter.Limit > 100 {
+		return nil, errors.New("limit harus antara 1 sampai 100")
+	}
+
+	// Validasi search.
+	filter.Search = strings.TrimSpace(filter.Search)
+	if utf8.RuneCountInString(filter.Search) > 200 {
+		return nil, errors.New("search maksimal 200 karakter")
+	}
+
+	// Validasi status.
+	filter.Status = strings.ToUpper(strings.TrimSpace(filter.Status))
+	if filter.Status != "" &&
+		filter.Status != "TODO" &&
+		filter.Status != "IN_PROGRESS" &&
+		filter.Status != "DONE" {
+		return nil, errors.New("status harus TODO, IN_PROGRESS, atau DONE")
+	}
+
+	// Validasi priority.
+	filter.Priority = strings.ToUpper(strings.TrimSpace(filter.Priority))
+	if filter.Priority != "" &&
+		filter.Priority != "LOW" &&
+		filter.Priority != "MEDIUM" &&
+		filter.Priority != "HIGH" {
+		return nil, errors.New("priority harus LOW, MEDIUM, atau HIGH")
+	}
+
+	// Validasi category ID.
+	if filter.CategoryID != nil && *filter.CategoryID < 1 {
+		return nil, errors.New("category_id harus lebih besar dari 0")
+	}
+
+	// Default dan validasi sorting.
+	filter.SortBy = strings.ToLower(strings.TrimSpace(filter.SortBy))
+	if filter.SortBy == "" {
+		filter.SortBy = "created_at"
+	}
+
+	if filter.SortBy != "created_at" &&
+		filter.SortBy != "due_date" &&
+		filter.SortBy != "title" {
+		return nil, errors.New("sort_by harus created_at, due_date, atau title")
+	}
+
+	filter.SortOrder = strings.ToUpper(strings.TrimSpace(filter.SortOrder))
+	if filter.SortOrder == "" {
+		filter.SortOrder = "DESC"
+	}
+
+	if filter.SortOrder != "ASC" && filter.SortOrder != "DESC" {
+		return nil, errors.New("sort_order harus ASC atau DESC")
+	}
+
+	tasks, total, err := s.taskRepo.ListUserTasks(
+		ctx,
+		userID,
+		filter,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	responses := make([]dto.TaskResponse, 0, len(tasks))
+	for i := range tasks {
+		responses = append(responses, toTaskResponse(&tasks[i]))
+	}
+
+	var totalPages int64
+	if total > 0 {
+		totalPages = (total + int64(filter.Limit) - 1) / int64(filter.Limit)
+	}
+
+	return &dto.TaskListResponse{
+		Tasks: responses,
+		Pagination: dto.PaginationMeta{
+			Total:      total,
+			Page:       filter.Page,
+			Limit:      filter.Limit,
+			TotalPages: totalPages,
+		},
+	}, nil
 }
 
 // FindByID mengambil detail task berdasarkan ID dan pemiliknya.

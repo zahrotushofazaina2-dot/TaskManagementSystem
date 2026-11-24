@@ -1,3 +1,4 @@
+
 package handler
 
 import (
@@ -5,8 +6,10 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"taskmanagement/internal/dto"
+	"taskmanagement/internal/repository"
 	"taskmanagement/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -57,13 +60,126 @@ func (h *TaskHandler) Create(c *gin.Context) {
 	})
 }
 
-// FindAll menangani pengambilan seluruh task milik user.
+// FindAll menangani pencarian, filter, sorting, dan pagination task milik user.
 func (h *TaskHandler) FindAll(c *gin.Context) {
 	userID := c.GetInt64("user_id")
 
-	tasks, err := h.taskService.FindAll(
+	// Membaca parameter pagination.
+	page := 1
+	if value := c.Query("page"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "Parameter page harus berupa angka minimal 1",
+			})
+			return
+		}
+		page = parsed
+	}
+
+	limit := 10
+	if value := c.Query("limit"); value != "" {
+		parsed, err := strconv.Atoi(value)
+		if err != nil || parsed < 1 || parsed > 100 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "Parameter limit harus berupa angka antara 1 sampai 100",
+			})
+			return
+		}
+		limit = parsed
+	}
+
+	// Membaca category_id jika diberikan.
+	var categoryID *int64
+	if value := c.Query("category_id"); value != "" {
+		parsed, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || parsed < 1 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"status":  "error",
+				"message": "Parameter category_id tidak valid",
+			})
+			return
+		}
+		categoryID = &parsed
+	}
+
+	// Membaca dan memvalidasi parameter filter.
+	search := strings.TrimSpace(c.Query("search"))
+	status := strings.ToUpper(strings.TrimSpace(c.Query("status")))
+	priority := strings.ToUpper(strings.TrimSpace(c.Query("priority")))
+	sortBy := strings.ToLower(strings.TrimSpace(c.Query("sort_by")))
+	sortOrder := strings.ToUpper(strings.TrimSpace(c.Query("sort_order")))
+
+	if len(search) > 200 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Parameter search maksimal 200 karakter",
+		})
+		return
+	}
+
+	if status != "" &&
+		status != "TODO" &&
+		status != "IN_PROGRESS" &&
+		status != "DONE" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Status harus TODO, IN_PROGRESS, atau DONE",
+		})
+		return
+	}
+
+	if priority != "" &&
+		priority != "LOW" &&
+		priority != "MEDIUM" &&
+		priority != "HIGH" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "Priority harus LOW, MEDIUM, atau HIGH",
+		})
+		return
+	}
+
+	if sortBy != "" &&
+		sortBy != "created_at" &&
+		sortBy != "due_date" &&
+		sortBy != "title" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "sort_by harus created_at, due_date, atau title",
+		})
+		return
+	}
+
+	if sortOrder != "" &&
+		sortOrder != "ASC" &&
+		sortOrder != "DESC" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"status":  "error",
+			"message": "sort_order harus ASC atau DESC",
+		})
+		return
+	}
+
+	// Menyusun filter untuk repository.
+	filter := repository.TaskListFilter{
+		Page:       page,
+		Limit:      limit,
+		Search:     search,
+		Status:     status,
+		Priority:   priority,
+		CategoryID: categoryID,
+		SortBy:     sortBy,
+		SortOrder:  sortOrder,
+	}
+
+	// Mengambil task berdasarkan filter.
+	result, err := h.taskService.ListTasks(
 		c.Request.Context(),
 		userID,
+		filter,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -75,7 +191,7 @@ func (h *TaskHandler) FindAll(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": "success",
-		"data":   tasks,
+		"data":   result,
 	})
 }
 

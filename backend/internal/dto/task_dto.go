@@ -31,3 +31,15 @@ type TaskResponse struct {
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 }
+
+type TaskListResponse struct {
+	Tasks      []TaskResponse `json:"tasks"`
+	Pagination PaginationMeta `json:"pagination"`
+}
+
+type PaginationMeta struct {
+	Total      int64 `json:"total"`
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	TotalPages int64 `json:"total_pages"`
+}
