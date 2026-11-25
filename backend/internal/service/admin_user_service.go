@@ -12,13 +12,17 @@ import (
 )
 
 var (
-	ErrInvalidAdminFilter = errors.New("filter pengguna tidak valid")
-	ErrUserNotFound       = errors.New("pengguna tidak ditemukan")
-	ErrCannotModifySelf   = errors.New("Admin tidak dapat mengubah akun sendiri")
-	ErrInvalidUserRole    = errors.New("role pengguna tidak valid")
+	ErrInvalidAdminFilter         = errors.New("filter pengguna tidak valid")
+	ErrUserNotFound               = errors.New("pengguna tidak ditemukan")
+	ErrCannotModifySelf           = errors.New("Admin tidak dapat mengubah akun sendiri")
+	ErrInvalidUserRole            = errors.New("role pengguna tidak valid")
+	ErrProtectedAdmin             = errors.New("ADMIN tidak memiliki izin untuk mengubah akun ADMIN")
+	ErrProtectedSuperAdmin        = errors.New("akun SUPER_ADMIN utama tidak dapat diubah")
+	ErrCannotAssignSuperAdmin     = errors.New("role SUPER_ADMIN tidak dapat diberikan melalui fitur ini")
+	ErrUnauthorizedUserManagement = errors.New("Anda tidak memiliki izin untuk mengelola pengguna")
 )
 
-// AdminUserService menangani logika bisnis pengelolaan pengguna oleh Admin.
+// AdminUserService menangani logika bisnis pengelolaan pengguna.
 type AdminUserService struct {
 	userRepo *repository.UserRepository
 }
@@ -40,7 +44,10 @@ func (s *AdminUserService) ListUsers(
 	search := strings.TrimSpace(req.Search)
 	role := strings.ToUpper(strings.TrimSpace(req.Role))
 
-	if role != "" && role != "USER" && role != "ADMIN" {
+	if role != "" &&
+		role != "USER" &&
+		role != "ADMIN" &&
+		role != "SUPER_ADMIN" {
 		return nil, ErrInvalidAdminFilter
 	}
 
@@ -115,14 +122,24 @@ func (s *AdminUserService) FindByID(
 	return &response, nil
 }
 
-// UpdateRole mengubah role pengguna oleh Admin.
+// UpdateRole mengubah role pengguna.
+//
+// ADMIN hanya boleh mengelola USER.
+// SUPER_ADMIN boleh mengelola USER dan ADMIN.
+// SUPER_ADMIN tidak dapat diubah melalui fitur ini.
 func (s *AdminUserService) UpdateRole(
 	ctx context.Context,
 	requesterID int64,
+	requesterRole string,
 	targetID int64,
 	newRole string,
 ) error {
+	requesterRole = strings.ToUpper(strings.TrimSpace(requesterRole))
 	newRole = strings.ToUpper(strings.TrimSpace(newRole))
+
+	if requesterRole != "ADMIN" && requesterRole != "SUPER_ADMIN" {
+		return ErrUnauthorizedUserManagement
+	}
 
 	if targetID < 1 {
 		return ErrUserNotFound
@@ -130,30 +147,64 @@ func (s *AdminUserService) UpdateRole(
 
 	if requesterID == targetID {
 		return ErrCannotModifySelf
+	}
+
+	if newRole == "SUPER_ADMIN" {
+		return ErrCannotAssignSuperAdmin
 	}
 
 	if newRole != "USER" && newRole != "ADMIN" {
 		return ErrInvalidUserRole
 	}
 
+	if requesterRole == "ADMIN" && newRole == "ADMIN" {
+		return ErrUnauthorizedUserManagement
+	}
+
 	user, err := s.userRepo.FindByID(ctx, targetID)
 	if err != nil {
 		return err
 	}
+
 	if user == nil {
 		return ErrUserNotFound
 	}
 
-	return s.userRepo.UpdateRole(ctx, targetID, newRole)
+	targetRole := strings.ToUpper(strings.TrimSpace(user.Role))
+
+	if targetRole == "SUPER_ADMIN" {
+		return ErrProtectedSuperAdmin
+	}
+
+	if requesterRole == "ADMIN" && targetRole == "ADMIN" {
+		return ErrProtectedAdmin
+	}
+
+	return s.userRepo.UpdateRole(
+		ctx,
+		requesterID,
+		targetID,
+		newRole,
+	)
 }
 
-// UpdateStatus mengubah status aktif pengguna oleh Admin.
+// UpdateStatus mengubah status aktif pengguna.
+//
+// ADMIN hanya boleh mengubah status USER.
+// SUPER_ADMIN boleh mengubah status USER dan ADMIN.
 func (s *AdminUserService) UpdateStatus(
 	ctx context.Context,
 	requesterID int64,
+	requesterRole string,
 	targetID int64,
 	isActive bool,
 ) error {
+	requesterRole = strings.ToUpper(strings.TrimSpace(requesterRole))
+
+	if requesterRole != "ADMIN" && requesterRole != "SUPER_ADMIN" {
+		return ErrUnauthorizedUserManagement
+	}
+
 	if targetID < 1 {
 		return ErrUserNotFound
 	}
@@ -166,11 +217,27 @@ func (s *AdminUserService) UpdateStatus(
 	if err != nil {
 		return err
 	}
+
 	if user == nil {
 		return ErrUserNotFound
 	}
 
-	return s.userRepo.UpdateStatus(ctx, targetID, isActive)
+	targetRole := strings.ToUpper(strings.TrimSpace(user.Role))
+
+	if targetRole == "SUPER_ADMIN" {
+		return ErrProtectedSuperAdmin
+	}
+
+	if requesterRole == "ADMIN" && targetRole == "ADMIN" {
+		return ErrProtectedAdmin
+	}
+
+	return s.userRepo.UpdateStatus(
+		ctx,
+		requesterID,
+		targetID,
+		isActive,
+	)
 }
 
 // toAdminUserResponse mengubah model User menjadi DTO Admin yang aman.

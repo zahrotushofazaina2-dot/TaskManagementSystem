@@ -53,6 +53,7 @@ func (h *AdminUserHandler) ListUsers(c *gin.Context) {
 			})
 			return
 		}
+
 		isActive = &parsed
 	}
 
@@ -142,7 +143,7 @@ func (h *AdminUserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	requesterValue, exists := c.Get("user_id")
+	requesterID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "Identitas pengguna tidak ditemukan",
@@ -150,7 +151,7 @@ func (h *AdminUserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
-	requesterID, ok := requesterValue.(int64)
+	requesterIDInt, ok := requesterID.(int64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Format identitas pengguna tidak valid",
@@ -158,31 +159,46 @@ func (h *AdminUserHandler) UpdateRole(c *gin.Context) {
 		return
 	}
 
+	requesterRole := c.GetString("user_role")
+
 	err = h.adminUserService.UpdateRole(
 		c.Request.Context(),
-		requesterID,
+		requesterIDInt,
+		requesterRole,
 		targetID,
 		req.Role,
 	)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrCannotModifySelf):
+		case errors.Is(err, service.ErrCannotModifySelf),
+			errors.Is(err, service.ErrProtectedSuperAdmin),
+			errors.Is(err, service.ErrCannotAssignSuperAdmin),
+			errors.Is(err, service.ErrUnauthorizedUserManagement):
 			c.JSON(http.StatusForbidden, gin.H{
 				"message": err.Error(),
 			})
+
 		case errors.Is(err, service.ErrInvalidUserRole):
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": err.Error(),
 			})
+
 		case errors.Is(err, service.ErrUserNotFound),
 			errors.Is(err, sql.ErrNoRows):
 			c.JSON(http.StatusNotFound, gin.H{
 				"message": "Pengguna tidak ditemukan",
 			})
+
+		case errors.Is(err, repository.ErrProtectedSuperAdmin):
+			c.JSON(http.StatusForbidden, gin.H{
+				"message": err.Error(),
+			})
+
 		case errors.Is(err, repository.ErrLastActiveAdmin):
 			c.JSON(http.StatusConflict, gin.H{
 				"message": err.Error(),
 			})
+
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "Gagal mengubah role pengguna",
@@ -215,7 +231,7 @@ func (h *AdminUserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	requesterValue, exists := c.Get("user_id")
+	requesterID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusUnauthorized, gin.H{
 			"message": "Identitas pengguna tidak ditemukan",
@@ -223,7 +239,7 @@ func (h *AdminUserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	requesterID, ok := requesterValue.(int64)
+	requesterIDInt, ok := requesterID.(int64)
 	if !ok {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"message": "Format identitas pengguna tidak valid",
@@ -231,27 +247,40 @@ func (h *AdminUserHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
+	requesterRole := c.GetString("user_role")
+
 	err = h.adminUserService.UpdateStatus(
 		c.Request.Context(),
-		requesterID,
+		requesterIDInt,
+		requesterRole,
 		targetID,
 		*req.IsActive,
 	)
 	if err != nil {
 		switch {
-		case errors.Is(err, service.ErrCannotModifySelf):
+		case errors.Is(err, service.ErrCannotModifySelf),
+			errors.Is(err, service.ErrProtectedSuperAdmin),
+			errors.Is(err, service.ErrUnauthorizedUserManagement):
 			c.JSON(http.StatusForbidden, gin.H{
 				"message": err.Error(),
 			})
+
 		case errors.Is(err, service.ErrUserNotFound),
 			errors.Is(err, sql.ErrNoRows):
 			c.JSON(http.StatusNotFound, gin.H{
 				"message": "Pengguna tidak ditemukan",
 			})
+
+		case errors.Is(err, repository.ErrProtectedSuperAdmin):
+			c.JSON(http.StatusForbidden, gin.H{
+				"message": err.Error(),
+			})
+
 		case errors.Is(err, repository.ErrLastActiveAdmin):
 			c.JSON(http.StatusConflict, gin.H{
 				"message": err.Error(),
 			})
+
 		default:
 			c.JSON(http.StatusInternalServerError, gin.H{
 				"message": "Gagal mengubah status pengguna",

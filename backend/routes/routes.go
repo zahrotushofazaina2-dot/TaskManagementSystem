@@ -78,10 +78,8 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 	userRoutes.Use(authMiddleware.Authenticate())
 	userRoutes.Use(middleware.RequireRole("USER"))
 	{
-		// User Dashboard
 		userRoutes.GET("/dashboard", userDashboardHandler.GetStats)
 
-		// Category CRUD
 		categories := userRoutes.Group("/categories")
 		{
 			categories.POST("", categoryHandler.Create)
@@ -91,7 +89,6 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 			categories.DELETE("/:id", categoryHandler.Delete)
 		}
 
-		// Task CRUD
 		tasks := userRoutes.Group("/tasks")
 		{
 			tasks.POST("", taskHandler.Create)
@@ -102,7 +99,8 @@ func SetupRouter(db *sql.DB, authCfg *config.AuthConfig) *gin.Engine {
 		}
 	}
 
-	// Protected Admin Routes
+	// Protected Admin Routes.
+	// ADMIN dan SUPER_ADMIN dapat mengakses endpoint ini.
 	adminRoutes := router.Group("/api/v1/admin")
 	adminRoutes.Use(authMiddleware.Authenticate())
 	adminRoutes.Use(middleware.RequireRole("ADMIN"))

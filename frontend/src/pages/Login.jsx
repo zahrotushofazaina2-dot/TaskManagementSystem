@@ -141,7 +141,11 @@ export default function Login() {
 
       await new Promise((resolve) => setTimeout(resolve, 900))
 
-      navigate(user.role === 'ADMIN' ? '/admin' : '/dashboard')
+      navigate(
+        user.role === 'ADMIN' || user.role === 'SUPER_ADMIN'
+          ? '/admin'
+          : '/dashboard'
+      )
     } catch (err) {
       setError(err.message || 'Login gagal. Periksa kembali data kamu.')
     } finally {

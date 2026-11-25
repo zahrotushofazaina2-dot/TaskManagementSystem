@@ -23,7 +23,9 @@ function getData(response) {
 
 function formatDate(value) {
   if (!value) return '-'
+
   const date = new Date(value)
+
   if (Number.isNaN(date.getTime())) return '-'
 
   return date.toLocaleDateString('en-US', {
@@ -33,7 +35,13 @@ function formatDate(value) {
   })
 }
 
-export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
+export default function AdminUsers({
+  currentUser,
+  onBack,
+  onActionSuccess,
+}) {
+  const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'
+
   const [users, setUsers] = useState([])
   const [pagination, setPagination] = useState({
     total: 0,
@@ -59,8 +67,11 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
   const [updatingID, setUpdatingID] = useState(null)
 
   const loadUsers = useCallback(async (refresh = false) => {
-    if (refresh) setRefreshing(true)
-    else setLoading(true)
+    if (refresh) {
+      setRefreshing(true)
+    } else {
+      setLoading(true)
+    }
 
     setError('')
     setNotice('')
@@ -73,7 +84,9 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
 
       if (search) params.set('search', search)
       if (roleFilter) params.set('role', roleFilter)
-      if (statusFilter !== '') params.set('is_active', statusFilter)
+      if (statusFilter !== '') {
+        params.set('is_active', statusFilter)
+      }
 
       const response = await api.get(
         `/api/v1/admin/users?${params.toString()}`
@@ -123,7 +136,10 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     setDetailLoading(true)
 
     try {
-      const response = await api.get(`/api/v1/admin/users/${userID}`)
+      const response = await api.get(
+        `/api/v1/admin/users/${userID}`
+      )
+
       setSelectedUser(getData(response))
     } catch (err) {
       setDetailError(err.message || 'Failed to fetch user details.')
@@ -132,8 +148,33 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     }
   }
 
+  function canManageUser(user) {
+    const isSelf =
+      Number(user.id) === Number(currentUser?.id)
+
+    const isSuperAdminTarget =
+      user.role === 'SUPER_ADMIN'
+
+    if (isSelf) return false
+    if (isSuperAdminTarget) return false
+
+    return true
+  }
+
   async function updateRole(user, newRole) {
     if (newRole === user.role) return
+
+    if (!canManageUser(user)) {
+      setError('You are not allowed to modify this account.')
+      return
+    }
+
+    const allowedRoles = ['USER', 'ADMIN']
+
+    if (!allowedRoles.includes(newRole)) {
+      setError('Invalid role selection.')
+      return
+    }
 
     const confirmed = window.confirm(
       `Are you sure you want to change ${user.name}'s role from ${user.role} to ${newRole}?`
@@ -146,13 +187,19 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     setNotice('')
 
     try {
-      await api.put(`/api/v1/admin/users/${user.id}/role`, {
-        role: newRole,
-      })
+      await api.put(
+        `/api/v1/admin/users/${user.id}/role`,
+        {
+          role: newRole,
+        }
+      )
 
       onActionSuccess?.()
 
-      setNotice(`Successfully updated ${user.name}'s role to ${newRole}.`)
+      setNotice(
+        `Successfully updated ${user.name}'s role to ${newRole}.`
+      )
+
       await loadUsers(true)
 
       if (selectedUser?.id === user.id) {
@@ -166,6 +213,11 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
   }
 
   async function updateStatus(user) {
+    if (!canManageUser(user)) {
+      setError('You are not allowed to modify this account.')
+      return
+    }
+
     const nextStatus = !user.is_active
     const action = nextStatus ? 'activate' : 'deactivate'
 
@@ -180,9 +232,12 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     setNotice('')
 
     try {
-      await api.put(`/api/v1/admin/users/${user.id}/status`, {
-        is_active: nextStatus,
-      })
+      await api.put(
+        `/api/v1/admin/users/${user.id}/status`,
+        {
+          is_active: nextStatus,
+        }
+      )
 
       onActionSuccess?.()
 
@@ -202,10 +257,26 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     }
   }
 
-  const totalPages = Math.max(1, pagination.total_pages || 1)
-  const activeCount = users.filter((user) => user.is_active).length
-  const inactiveCount = users.filter((user) => !user.is_active).length
-  const adminCount = users.filter((user) => user.role === 'ADMIN').length
+  const totalPages = Math.max(
+    1,
+    pagination.total_pages || 1
+  )
+
+  const activeCount = users.filter(
+    (user) => user.is_active
+  ).length
+
+  const inactiveCount = users.filter(
+    (user) => !user.is_active
+  ).length
+
+  const adminCount = users.filter(
+    (user) => user.role === 'ADMIN'
+  ).length
+
+  const superAdminCount = users.filter(
+    (user) => user.role === 'SUPER_ADMIN'
+  ).length
 
   const detailUser = selectedUser?.user || selectedUser
 
@@ -213,14 +284,23 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
     <section className="admin-users-page">
       <div className="admin-users-heading">
         <div>
-          <button className="admin-back-button" onClick={onBack}>
+          <button
+            className="admin-back-button"
+            onClick={onBack}
+          >
             <ArrowLeft size={17} />
             Back to Dashboard
           </button>
 
-          <span className="admin-eyebrow">ADMINISTRATION</span>
+          <span className="admin-eyebrow">
+            {isSuperAdmin ? 'SUPER ADMINISTRATION' : 'ADMINISTRATION'}
+          </span>
+
           <h2>Manage Users</h2>
-          <p>Manage user roles and account statuses across the system.</p>
+
+          <p>
+            Manage user roles and account statuses across the system.
+          </p>
         </div>
 
         <button
@@ -228,49 +308,74 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
           onClick={() => loadUsers(true)}
           disabled={loading || refreshing}
         >
-          <RefreshCw size={16} className={refreshing ? 'admin-spinning' : ''} />
+          <RefreshCw
+            size={16}
+            className={refreshing ? 'admin-spinning' : ''}
+          />
           Refresh
         </button>
       </div>
 
       <div className="admin-user-summary">
         <article>
-          <div className="admin-summary-icon"><Users size={19} /></div>
+          <div className="admin-summary-icon">
+            <Users size={19} />
+          </div>
           <span>Total Users</span>
           <strong>{pagination.total}</strong>
         </article>
 
         <article>
-          <div className="admin-summary-icon"><UserCheck size={19} /></div>
+          <div className="admin-summary-icon">
+            <UserCheck size={19} />
+          </div>
           <span>Active on This Page</span>
           <strong>{activeCount}</strong>
         </article>
 
         <article>
-          <div className="admin-summary-icon"><UserX size={19} /></div>
+          <div className="admin-summary-icon">
+            <UserX size={19} />
+          </div>
           <span>Inactive on This Page</span>
           <strong>{inactiveCount}</strong>
         </article>
 
         <article>
-          <div className="admin-summary-icon"><ShieldCheck size={19} /></div>
+          <div className="admin-summary-icon">
+            <ShieldCheck size={19} />
+          </div>
           <span>Admins on This Page</span>
           <strong>{adminCount}</strong>
         </article>
+
+        {isSuperAdmin && (
+          <article>
+            <div className="admin-summary-icon">
+              <ShieldCheck size={19} />
+            </div>
+            <span>Super Admins on This Page</span>
+            <strong>{superAdminCount}</strong>
+          </article>
+        )}
       </div>
 
       {error && (
         <div className="admin-message admin-message-error">
           <AlertCircle size={17} />
           {error}
-          <button onClick={() => setError('')}><X size={16} /></button>
+          <button onClick={() => setError('')}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
       {notice && (
         <div className="admin-message admin-message-success">
           {notice}
-          <button onClick={() => setNotice('')}><X size={16} /></button>
+          <button onClick={() => setNotice('')}>
+            <X size={16} />
+          </button>
         </div>
       )}
 
@@ -278,22 +383,34 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
         <div className="admin-users-panel-heading">
           <div>
             <h3>User List</h3>
-            <p>Search accounts, filter by role, and manage user statuses.</p>
+            <p>
+              Search accounts, filter by role, and manage user statuses.
+            </p>
           </div>
+
           <span className="admin-total-label">
             {pagination.total} users
           </span>
         </div>
 
         <div className="admin-user-filters">
-          <form className="admin-user-search" onSubmit={submitSearch}>
+          <form
+            className="admin-user-search"
+            onSubmit={submitSearch}
+          >
             <Search size={17} />
+
             <input
               value={searchInput}
-              onChange={(event) => setSearchInput(event.target.value)}
+              onChange={(event) =>
+                setSearchInput(event.target.value)
+              }
               placeholder="Search by name or email..."
             />
-            <button type="submit">Search</button>
+
+            <button type="submit">
+              Search
+            </button>
           </form>
 
           <select
@@ -306,6 +423,11 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
             <option value="">All Roles</option>
             <option value="USER">USER</option>
             <option value="ADMIN">ADMIN</option>
+            {isSuperAdmin && (
+              <option value="SUPER_ADMIN">
+                SUPER_ADMIN
+              </option>
+            )}
           </select>
 
           <select
@@ -320,7 +442,10 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
             <option value="false">Inactive</option>
           </select>
 
-          <button className="admin-reset-button" onClick={resetFilters}>
+          <button
+            className="admin-reset-button"
+            onClick={resetFilters}
+          >
             Reset
           </button>
         </div>
@@ -353,8 +478,11 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                 </tr>
               ) : (
                 users.map((user) => {
-                  const isSelf = Number(user.id) === Number(currentUser?.id)
+                  const isSelf =
+                    Number(user.id) === Number(currentUser?.id)
+
                   const isUpdating = updatingID === user.id
+                  const canManage = canManageUser(user)
 
                   return (
                     <tr key={user.id}>
@@ -363,10 +491,18 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                           <div className="admin-user-avatar">
                             {user.name?.charAt(0)?.toUpperCase() || 'U'}
                           </div>
+
                           <div>
                             <strong>{user.name}</strong>
                             <span>{user.email}</span>
-                            {isSelf && <small>Your Account</small>}
+
+                            {isSelf && (
+                              <small>Your Account</small>
+                            )}
+
+                            {user.role === 'SUPER_ADMIN' && (
+                              <small>Protected Account</small>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -377,20 +513,30 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                         <select
                           className="admin-role-select"
                           value={user.role}
-                          disabled={isSelf || isUpdating}
-                          onChange={(event) => updateRole(user, event.target.value)}
+                          disabled={!canManage || isUpdating}
+                          onChange={(event) =>
+                            updateRole(user, event.target.value)
+                          }
                         >
                           <option value="USER">USER</option>
                           <option value="ADMIN">ADMIN</option>
+
+                          {user.role === 'SUPER_ADMIN' && (
+                            <option value="SUPER_ADMIN">
+                              SUPER_ADMIN
+                            </option>
+                          )}
                         </select>
                       </td>
 
                       <td>
-                        <span className={
-                          user.is_active
-                            ? 'admin-account-status active'
-                            : 'admin-account-status inactive'
-                        }>
+                        <span
+                          className={
+                            user.is_active
+                              ? 'admin-account-status active'
+                              : 'admin-account-status inactive'
+                          }
+                        >
                           {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
@@ -402,7 +548,9 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                           <button
                             className="admin-detail-button"
                             title="View Details"
-                            onClick={() => openUserDetail(user.id)}
+                            onClick={() =>
+                              openUserDetail(user.id)
+                            }
                           >
                             <Eye size={16} />
                           </button>
@@ -413,7 +561,7 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                                 ? 'admin-status-button deactivate'
                                 : 'admin-status-button activate'
                             }
-                            disabled={isSelf || isUpdating}
+                            disabled={!canManage || isUpdating}
                             onClick={() => updateStatus(user)}
                           >
                             {isUpdating
@@ -440,13 +588,18 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
           <div>
             <button
               disabled={page <= 1 || loading}
-              onClick={() => setPage((value) => value - 1)}
+              onClick={() =>
+                setPage((value) => value - 1)
+              }
             >
               Previous
             </button>
+
             <button
               disabled={page >= totalPages || loading}
-              onClick={() => setPage((value) => value + 1)}
+              onClick={() =>
+                setPage((value) => value + 1)
+              }
             >
               Next
             </button>
@@ -467,9 +620,12 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
           <section className="admin-detail-modal">
             <div className="admin-detail-heading">
               <div>
-                <span className="admin-eyebrow">USER INFORMATION</span>
+                <span className="admin-eyebrow">
+                  USER INFORMATION
+                </span>
                 <h3>User Details</h3>
               </div>
+
               <button
                 className="admin-detail-close"
                 onClick={() => {
@@ -482,7 +638,9 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
             </div>
 
             {detailLoading ? (
-              <p className="admin-detail-loading">Loading user details...</p>
+              <p className="admin-detail-loading">
+                Loading user details...
+              </p>
             ) : detailError ? (
               <div className="admin-message admin-message-error">
                 {detailError}
@@ -501,18 +659,26 @@ export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
                     <span>User ID</span>
                     <strong>#{detailUser.id}</strong>
                   </div>
+
                   <div>
                     <span>Role</span>
                     <strong>{detailUser.role || '-'}</strong>
                   </div>
+
                   <div>
                     <span>Status</span>
-                    <strong>{detailUser.is_active ? 'Active' : 'Inactive'}</strong>
+                    <strong>
+                      {detailUser.is_active ? 'Active' : 'Inactive'}
+                    </strong>
                   </div>
+
                   <div>
                     <span>Joined Date</span>
-                    <strong>{formatDate(detailUser.created_at)}</strong>
+                    <strong>
+                      {formatDate(detailUser.created_at)}
+                    </strong>
                   </div>
+
                   <div>
                     <span>Total Tasks</span>
                     <strong>

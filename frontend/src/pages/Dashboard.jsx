@@ -73,6 +73,7 @@ const mascotMoods = {
     message: "Something went wrong. Let's try again.",
   },
 }
+
 function unwrapData(response) {
   return response?.data ?? response ?? {}
 }
@@ -184,7 +185,6 @@ function Pagination({ page, totalPages, onPageChange }) {
    DASHBOARD MASCOT
 ========================================= */
 
-
 function MascotCompanion({ mood = 'idle' }) {
   const currentMood = mascotMoods[mood] || mascotMoods.idle
 
@@ -293,14 +293,16 @@ function MascotCompanion({ mood = 'idle' }) {
   )
 }
 
-
 /* =========================================
    MAIN DASHBOARD
 ========================================= */
 
 export default function Dashboard() {
   const { user, logout } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
+
+  // ADMIN dan SUPER_ADMIN menggunakan dashboard admin.
+  const isAdmin =
+    user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN'
 
   const [adminView, setAdminView] = useState('overview')
 
@@ -782,16 +784,16 @@ export default function Dashboard() {
           className="dashboard-view-transition"
         >
           {loading ? (
-  <div className="dashboard-loading">
-    <div className="loading-spinner" />
-    <p>Memuat data dashboard...</p>
-  </div>
-) : isAdmin && adminView === 'users' ? (
-  <AdminUsers
-    currentUser={user}
-    onBack={() => setAdminView('overview')}
-    onActionSuccess={() => triggerMascotMood('happy')}
-  />
+            <div className="dashboard-loading">
+              <div className="loading-spinner" />
+              <p>Memuat data dashboard...</p>
+            </div>
+          ) : isAdmin && adminView === 'users' ? (
+            <AdminUsers
+              currentUser={user}
+              onBack={() => setAdminView('overview')}
+              onActionSuccess={() => triggerMascotMood('happy')}
+            />
           ) : isAdmin ? (
             <AdminDashboard
               stats={stats}

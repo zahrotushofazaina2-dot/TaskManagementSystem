@@ -10,6 +10,32 @@ import (
 	"taskmanagement/internal/model"
 )
 
+var (
+	ErrLastActiveAdmin = errors.New(
+		"sistem harus memiliki minimal satu akun administrator aktif",
+	)
+
+	ErrProtectedSuperAdmin = errors.New(
+		"akun SUPER_ADMIN tidak dapat diubah",
+	)
+
+	ErrProtectedAdmin = errors.New(
+		"ADMIN tidak memiliki izin untuk mengubah akun ADMIN",
+	)
+
+	ErrCannotModifySelf = errors.New(
+		"Admin tidak dapat mengubah akun sendiri",
+	)
+
+	ErrCannotAssignSuperAdmin = errors.New(
+		"role SUPER_ADMIN tidak dapat diberikan melalui fitur ini",
+	)
+
+	ErrUnauthorizedUserManagement = errors.New(
+		"Anda tidak memiliki izin untuk mengelola pengguna",
+	)
+)
+
 // UserRepository menangani operasi database untuk tabel users.
 type UserRepository struct {
 	db *sql.DB
@@ -23,7 +49,10 @@ func NewUserRepository(db *sql.DB) *UserRepository {
 }
 
 // Create menyimpan pengguna baru ke database.
-func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
+func (r *UserRepository) Create(
+	ctx context.Context,
+	user *model.User,
+) error {
 	query := `
 		INSERT INTO users (name, email, password, role, is_active)
 		VALUES (?, ?, ?, ?, ?)
@@ -67,7 +96,11 @@ func (r *UserRepository) FindByEmail(
 
 	user := &model.User{}
 
-	err := r.db.QueryRowContext(ctx, query, email).Scan(
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		email,
+	).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Email,
@@ -104,7 +137,11 @@ func (r *UserRepository) FindByID(
 
 	user := &model.User{}
 
-	err := r.db.QueryRowContext(ctx, query, id).Scan(
+	err := r.db.QueryRowContext(
+		ctx,
+		query,
+		id,
+	).Scan(
 		&user.ID,
 		&user.Name,
 		&user.Email,
@@ -159,11 +196,11 @@ func (r *UserRepository) ListUsers(
 	}
 
 	whereClause := ""
+
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
-	// Menghitung total data sesuai filter.
 	countQuery := `
 		SELECT COUNT(*)
 		FROM users
@@ -184,7 +221,6 @@ func (r *UserRepository) ListUsers(
 
 	offset := (page - 1) * limit
 
-	// Mengambil data pengguna tanpa kolom password.
 	query := `
 		SELECT id, name, email, role,
 		       is_active, created_at, updated_at
@@ -243,19 +279,25 @@ func (r *UserRepository) ListUsers(
 	return users, total, nil
 }
 
-var ErrLastActiveAdmin = errors.New("sistem harus memiliki minimal satu Admin aktif")
-
-// lockActiveAdmins mengunci seluruh baris Admin aktif selama transaction.
+// lockActiveAdmins mengunci seluruh akun administrator aktif selama transaction.
+// SUPER_ADMIN ikut dihitung sebagai administrator aktif.
+// lockActiveAdmins mengunci seluruh akun ADMIN aktif selama transaction.
 func lockActiveAdmins(
 	ctx context.Context,
 	tx *sql.Tx,
 ) (int, error) {
 	rows, err := tx.QueryContext(
 		ctx,
-		`SELECT id FROM users WHERE role = 'ADMIN' AND is_active = 1 FOR UPDATE`,
+		`SELECT id FROM users
+		 WHERE role = 'ADMIN'
+		 AND is_active = 1
+		 FOR UPDATE`,
 	)
 	if err != nil {
-		return 0, fmt.Errorf("gagal mengunci data Admin aktif: %w", err)
+		return 0, fmt.Errorf(
+			"gagal mengunci data administrator aktif: %w",
+			err,
+		)
 	}
 	defer rows.Close()
 
@@ -263,25 +305,144 @@ func lockActiveAdmins(
 
 	for rows.Next() {
 		var id int64
+
 		if err := rows.Scan(&id); err != nil {
-			return 0, fmt.Errorf("gagal membaca data Admin aktif: %w", err)
+			return 0, fmt.Errorf(
+				"gagal membaca data administrator aktif: %w",
+				err,
+			)
 		}
+
 		count++
 	}
 
 	if err := rows.Err(); err != nil {
-		return 0, fmt.Errorf("gagal membaca hasil Admin aktif: %w", err)
+		return 0, fmt.Errorf(
+			"gagal membaca hasil administrator aktif: %w",
+			err,
+		)
 	}
 
 	return count, nil
 }
 
-// UpdateRole mengubah role pengguna dengan perlindungan Admin terakhir.
+// validateManagementActor memastikan pelaku masih aktif dan role aktualnya
+// memiliki izin untuk mengelola pengguna.
+func validateManagementActor(
+	ctx context.Context,
+	tx *sql.Tx,
+	requesterID int64,
+) (string, error) {
+	if requesterID < 1 {
+		return "", ErrUnauthorizedUserManagement
+	}
+
+	var role string
+	var isActive bool
+
+	err := tx.QueryRowContext(
+		ctx,
+		`SELECT role, is_active
+		 FROM users
+		 WHERE id = ?
+		 FOR UPDATE`,
+		requesterID,
+	).Scan(&role, &isActive)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", ErrUnauthorizedUserManagement
+		}
+
+		return "", fmt.Errorf(
+			"gagal memverifikasi akun pelaku: %w",
+			err,
+		)
+	}
+
+	role = strings.ToUpper(strings.TrimSpace(role))
+
+	if !isActive {
+		return "", ErrUnauthorizedUserManagement
+	}
+
+	if role != "ADMIN" && role != "SUPER_ADMIN" {
+		return "", ErrUnauthorizedUserManagement
+	}
+
+	return role, nil
+}
+
+// validateTarget memastikan akun target boleh dikelola oleh pelaku.
+func validateTarget(
+	ctx context.Context,
+	tx *sql.Tx,
+	requesterID int64,
+	requesterRole string,
+	targetID int64,
+) (string, bool, error) {
+	if targetID < 1 {
+		return "", false, sql.ErrNoRows
+	}
+
+	if requesterID == targetID {
+		return "", false, ErrCannotModifySelf
+	}
+
+	var targetRole string
+	var targetActive bool
+
+	err := tx.QueryRowContext(
+		ctx,
+		`SELECT role, is_active
+		 FROM users
+		 WHERE id = ?
+		 FOR UPDATE`,
+		targetID,
+	).Scan(&targetRole, &targetActive)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, sql.ErrNoRows
+		}
+
+		return "", false, fmt.Errorf(
+			"gagal mengambil data target: %w",
+			err,
+		)
+	}
+
+	targetRole = strings.ToUpper(strings.TrimSpace(targetRole))
+
+	if targetRole == "SUPER_ADMIN" {
+		return "", false, ErrProtectedSuperAdmin
+	}
+
+	if requesterRole == "ADMIN" && targetRole == "ADMIN" {
+		return "", false, ErrProtectedAdmin
+	}
+
+	return targetRole, targetActive, nil
+}
+
+// UpdateRole mengubah role pengguna dengan pemeriksaan izin di database.
+// UpdateRole mengubah role pengguna dengan pemeriksaan izin di database.
 func (r *UserRepository) UpdateRole(
 	ctx context.Context,
+	requesterID int64,
 	userID int64,
 	newRole string,
 ) error {
+	newRole = strings.ToUpper(strings.TrimSpace(newRole))
+
+	if newRole == "SUPER_ADMIN" {
+		return ErrCannotAssignSuperAdmin
+	}
+
+	if newRole != "USER" && newRole != "ADMIN" {
+		return errors.New("role pengguna tidak valid")
+	}
+
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("gagal memulai transaction: %w", err)
@@ -293,24 +454,32 @@ func (r *UserRepository) UpdateRole(
 		return err
 	}
 
-	var currentRole string
-	var isActive bool
-
-	err = tx.QueryRowContext(
+	requesterRole, err := validateManagementActor(
 		ctx,
-		`SELECT role, is_active FROM users WHERE id = ? FOR UPDATE`,
-		userID,
-	).Scan(&currentRole, &isActive)
-
+		tx,
+		requesterID,
+	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return sql.ErrNoRows
-		}
-		return fmt.Errorf("gagal mengambil data pengguna: %w", err)
+		return err
+	}
+
+	currentRole, targetActive, err := validateTarget(
+		ctx,
+		tx,
+		requesterID,
+		requesterRole,
+		userID,
+	)
+	if err != nil {
+		return err
+	}
+
+	if requesterRole == "ADMIN" && newRole == "ADMIN" {
+		return ErrUnauthorizedUserManagement
 	}
 
 	if currentRole == "ADMIN" &&
-		isActive &&
+		targetActive &&
 		newRole != "ADMIN" &&
 		activeAdminCount <= 1 {
 		return ErrLastActiveAdmin
@@ -333,9 +502,10 @@ func (r *UserRepository) UpdateRole(
 	return nil
 }
 
-// UpdateStatus mengubah status aktif pengguna dengan perlindungan Admin terakhir.
+// UpdateStatus mengubah status pengguna dengan pemeriksaan izin di database.
 func (r *UserRepository) UpdateStatus(
 	ctx context.Context,
+	requesterID int64,
 	userID int64,
 	newStatus bool,
 ) error {
@@ -350,20 +520,24 @@ func (r *UserRepository) UpdateStatus(
 		return err
 	}
 
-	var currentRole string
-	var isActive bool
-
-	err = tx.QueryRowContext(
+	requesterRole, err := validateManagementActor(
 		ctx,
-		`SELECT role, is_active FROM users WHERE id = ? FOR UPDATE`,
-		userID,
-	).Scan(&currentRole, &isActive)
-
+		tx,
+		requesterID,
+	)
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return sql.ErrNoRows
-		}
-		return fmt.Errorf("gagal mengambil data pengguna: %w", err)
+		return err
+	}
+
+	currentRole, isActive, err := validateTarget(
+		ctx,
+		tx,
+		requesterID,
+		requesterRole,
+		userID,
+	)
+	if err != nil {
+		return err
 	}
 
 	if currentRole == "ADMIN" &&

@@ -32,6 +32,7 @@ type AdminUserListResponse struct {
 }
 
 // UpdateUserRoleRequest adalah request perubahan role pengguna.
+// SUPER_ADMIN tidak dapat diberikan melalui endpoint ini.
 type UpdateUserRoleRequest struct {
 	Role string `json:"role" binding:"required,oneof=USER ADMIN"`
 }

@@ -7,6 +7,16 @@ import Dashboard from './pages/Dashboard'
 import PageTransition from './components/PageTransition'
 import './App.css'
 
+function isAdminRole(role) {
+  return role === 'ADMIN' || role === 'SUPER_ADMIN'
+}
+
+function getHomePath(user) {
+  if (!user) return '/login'
+
+  return isAdminRole(user.role) ? '/admin' : '/dashboard'
+}
+
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth()
 
@@ -18,13 +28,12 @@ function ProtectedRoute({ children, role }) {
     return <Navigate to="/login" replace />
   }
 
-  if (role && user.role !== role) {
-    return (
-      <Navigate
-        to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}
-        replace
-      />
-    )
+  const hasAccess = !role
+    || (role === 'ADMIN' && isAdminRole(user.role))
+    || user.role === role
+
+  if (!hasAccess) {
+    return <Navigate to={getHomePath(user)} replace />
   }
 
   return children
@@ -44,7 +53,7 @@ function AppRoutes() {
           path="/login"
           element={
             user
-              ? <Navigate to={user.role === 'ADMIN' ? '/admin' : '/dashboard'} replace />
+              ? <Navigate to={getHomePath(user)} replace />
               : <Login />
           }
         />
@@ -53,7 +62,7 @@ function AppRoutes() {
           path="/register"
           element={
             user
-              ? <Navigate to={user.role === 'ADMIN' ? '/admin' : '/dashboard'} replace />
+              ? <Navigate to={getHomePath(user)} replace />
               : <Register />
           }
         />
@@ -79,14 +88,7 @@ function AppRoutes() {
         <Route
           path="*"
           element={
-            <Navigate
-              to={
-                user
-                  ? user.role === 'ADMIN' ? '/admin' : '/dashboard'
-                  : '/login'
-              }
-              replace
-            />
+            <Navigate to={getHomePath(user)} replace />
           }
         />
       </Routes>

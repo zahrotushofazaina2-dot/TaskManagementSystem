@@ -34,8 +34,29 @@ func expectAdminLocks(mock sqlmock.Sqlmock, adminIDs ...int64) {
 	}
 
 	mock.ExpectQuery(regexp.QuoteMeta(
-		"SELECT id FROM users WHERE role = 'ADMIN' AND is_active = 1 FOR UPDATE",
+		`SELECT id FROM users
+		 WHERE role = 'ADMIN'
+		 AND is_active = 1
+		 FOR UPDATE`,
 	)).WillReturnRows(rows)
+}
+
+func expectActor(
+	mock sqlmock.Sqlmock,
+	id int64,
+	role string,
+) {
+	mock.ExpectQuery(regexp.QuoteMeta(
+		`SELECT role, is_active
+		 FROM users
+		 WHERE id = ?
+		 FOR UPDATE`,
+	)).
+		WithArgs(id).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"role", "is_active"}).
+				AddRow(role, true),
+		)
 }
 
 func expectTargetAdmin(mock sqlmock.Sqlmock, id int64) {
@@ -49,22 +70,46 @@ func expectTargetAdmin(mock sqlmock.Sqlmock, id int64) {
 		)
 }
 
+func expectTargetSuperAdmin(mock sqlmock.Sqlmock, id int64) {
+	mock.ExpectQuery(regexp.QuoteMeta(
+		"SELECT role, is_active FROM users WHERE id = ? FOR UPDATE",
+	)).
+		WithArgs(id).
+		WillReturnRows(
+			sqlmock.NewRows([]string{"role", "is_active"}).
+				AddRow("SUPER_ADMIN", true),
+		)
+}
+
 func TestUpdateRoleRejectsDemotingLastActiveAdmin(t *testing.T) {
 	repo, mock, cleanup := setupUserRepositoryTest(t)
 	defer cleanup()
 
 	ctx := context.Background()
-	adminID := int64(4)
+
+	requesterID := int64(1)
+	targetID := int64(4)
 
 	mock.ExpectBegin()
-	expectAdminLocks(mock, adminID)
-	expectTargetAdmin(mock, adminID)
+
+	expectAdminLocks(mock, targetID)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetAdmin(mock, targetID)
+
 	mock.ExpectRollback()
 
-	err := repo.UpdateRole(ctx, adminID, "USER")
+	err := repo.UpdateRole(
+		ctx,
+		requesterID,
+		targetID,
+		"USER",
+	)
 
 	if !errors.Is(err, ErrLastActiveAdmin) {
-		t.Fatalf("diharapkan ErrLastActiveAdmin, mendapatkan: %v", err)
+		t.Fatalf(
+			"diharapkan ErrLastActiveAdmin, mendapatkan: %v",
+			err,
+		)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -77,17 +122,30 @@ func TestUpdateStatusRejectsDeactivatingLastActiveAdmin(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	adminID := int64(4)
+
+	requesterID := int64(1)
+	targetID := int64(4)
 
 	mock.ExpectBegin()
-	expectAdminLocks(mock, adminID)
-	expectTargetAdmin(mock, adminID)
+
+	expectAdminLocks(mock, targetID)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetAdmin(mock, targetID)
+
 	mock.ExpectRollback()
 
-	err := repo.UpdateStatus(ctx, adminID, false)
+	err := repo.UpdateStatus(
+		ctx,
+		requesterID,
+		targetID,
+		false,
+	)
 
 	if !errors.Is(err, ErrLastActiveAdmin) {
-		t.Fatalf("diharapkan ErrLastActiveAdmin, mendapatkan: %v", err)
+		t.Fatalf(
+			"diharapkan ErrLastActiveAdmin, mendapatkan: %v",
+			err,
+		)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
@@ -100,21 +158,30 @@ func TestUpdateRoleAllowsDemotingAdminWhenAnotherActiveAdminExists(t *testing.T)
 	defer cleanup()
 
 	ctx := context.Background()
-	adminID := int64(4)
+
+	requesterID := int64(1)
+	targetID := int64(5)
 
 	mock.ExpectBegin()
-	expectAdminLocks(mock, 4, 5)
-	expectTargetAdmin(mock, adminID)
+
+	expectAdminLocks(mock, 5, 6)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetAdmin(mock, targetID)
 
 	mock.ExpectExec(regexp.QuoteMeta(
 		"UPDATE users SET role = ? WHERE id = ?",
 	)).
-		WithArgs("USER", adminID).
+		WithArgs("USER", targetID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	mock.ExpectCommit()
 
-	err := repo.UpdateRole(ctx, adminID, "USER")
+	err := repo.UpdateRole(
+		ctx,
+		requesterID,
+		targetID,
+		"USER",
+	)
 
 	if err != nil {
 		t.Fatalf("seharusnya perubahan role berhasil: %v", err)
@@ -130,24 +197,105 @@ func TestUpdateStatusAllowsDeactivationWhenAnotherActiveAdminExists(t *testing.T
 	defer cleanup()
 
 	ctx := context.Background()
-	adminID := int64(4)
+
+	requesterID := int64(1)
+	targetID := int64(5)
 
 	mock.ExpectBegin()
-	expectAdminLocks(mock, 4, 5)
-	expectTargetAdmin(mock, adminID)
+
+	expectAdminLocks(mock, 5, 6)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetAdmin(mock, targetID)
 
 	mock.ExpectExec(regexp.QuoteMeta(
 		"UPDATE users SET is_active = ? WHERE id = ?",
 	)).
-		WithArgs(false, adminID).
+		WithArgs(false, targetID).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	mock.ExpectCommit()
 
-	err := repo.UpdateStatus(ctx, adminID, false)
+	err := repo.UpdateStatus(
+		ctx,
+		requesterID,
+		targetID,
+		false,
+	)
 
 	if err != nil {
 		t.Fatalf("seharusnya perubahan status berhasil: %v", err)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ekspektasi SQL tidak terpenuhi: %v", err)
+	}
+}
+
+func TestUpdateRoleRejectsChangingSuperAdmin(t *testing.T) {
+	repo, mock, cleanup := setupUserRepositoryTest(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	requesterID := int64(1)
+	targetID := int64(4)
+
+	mock.ExpectBegin()
+
+	expectAdminLocks(mock)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetSuperAdmin(mock, targetID)
+
+	mock.ExpectRollback()
+
+	err := repo.UpdateRole(
+		ctx,
+		requesterID,
+		targetID,
+		"USER",
+	)
+
+	if !errors.Is(err, ErrProtectedSuperAdmin) {
+		t.Fatalf(
+			"diharapkan ErrProtectedSuperAdmin, mendapatkan: %v",
+			err,
+		)
+	}
+
+	if err := mock.ExpectationsWereMet(); err != nil {
+		t.Fatalf("ekspektasi SQL tidak terpenuhi: %v", err)
+	}
+}
+
+func TestUpdateStatusRejectsDeactivatingSuperAdmin(t *testing.T) {
+	repo, mock, cleanup := setupUserRepositoryTest(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	requesterID := int64(1)
+	targetID := int64(4)
+
+	mock.ExpectBegin()
+
+	expectAdminLocks(mock)
+	expectActor(mock, requesterID, "SUPER_ADMIN")
+	expectTargetSuperAdmin(mock, targetID)
+
+	mock.ExpectRollback()
+
+	err := repo.UpdateStatus(
+		ctx,
+		requesterID,
+		targetID,
+		false,
+	)
+
+	if !errors.Is(err, ErrProtectedSuperAdmin) {
+		t.Fatalf(
+			"diharapkan ErrProtectedSuperAdmin, mendapatkan: %v",
+			err,
+		)
 	}
 
 	if err := mock.ExpectationsWereMet(); err != nil {
