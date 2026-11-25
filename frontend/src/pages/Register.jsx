@@ -52,6 +52,34 @@ export default function Register() {
     (item) => item.valid
   ).length
 
+  const mascotImages = {
+    idle: '/images/mascot/mascot-welcome.png',
+    thinking: '/images/mascot/mascot-thinking.png',
+    working: '/images/mascot/mascot-focus.png',
+    happy: '/images/mascot/mascot-happy.png',
+    error: '/images/mascot/mascot-sad.png',
+  }
+
+  const mascotSrc = mascotImages[characterMood] || mascotImages.idle
+
+  // Dipanggil ketika salah satu textbox mulai aktif
+  function handleFieldFocus(fieldName) {
+    setFocusedField(fieldName)
+
+    if (!loading && !success) {
+      setCharacterMood('thinking')
+    }
+  }
+
+  // Dipanggil ketika pengguna meninggalkan textbox
+  function handleFieldBlur() {
+    setFocusedField('')
+
+    if (!loading && !success && characterMood === 'thinking') {
+      setCharacterMood('idle')
+    }
+  }
+
   function handleChange(event) {
     const { name, value } = event.target
 
@@ -62,24 +90,23 @@ export default function Register() {
 
     setError('')
     setSuccess('')
-
-    if (name === 'password') {
-      setCharacterMood(value ? 'thinking' : 'idle')
-    }
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
+
     setError('')
     setSuccess('')
 
     if (form.name.trim().length < 2) {
       setError('Nama minimal 2 karakter.')
+      setCharacterMood('error')
       return
     }
 
     if (form.password.length < 8) {
       setError('Password minimal 8 karakter.')
+      setCharacterMood('error')
       return
     }
 
@@ -142,18 +169,13 @@ export default function Register() {
             <div className={`register-character mood-${characterMood}`}>
               <div className="character-image-placeholder">
                 <img
-                  src="/images/mascot/mascot-welcome.png"
+                  key={mascotSrc}
+                  src={mascotSrc}
                   alt="TaskFlow cyberpunk mascot"
                   onError={(event) => {
                     event.currentTarget.style.display = 'none'
                   }}
                 />
-
-                <div className="character-placeholder-content">
-                  <span className="character-symbol">✦</span>
-                  <strong>YOUR COMPANION</strong>
-                  <small>ILLUSTRATION LOADING</small>
-                </div>
               </div>
             </div>
 
@@ -237,8 +259,16 @@ export default function Register() {
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="cyber-register-form">
-                <div className={`cyber-field ${focusedField === 'name' ? 'field-active' : ''}`}>
+              <form
+                onSubmit={handleSubmit}
+                className="cyber-register-form"
+              >
+                {/* FULL NAME */}
+                <div
+                  className={`cyber-field ${
+                    focusedField === 'name' ? 'field-active' : ''
+                  }`}
+                >
                   <label htmlFor="register-name">
                     <span>01 / FULL NAME</span>
                     <span className="field-required">REQUIRED</span>
@@ -254,8 +284,8 @@ export default function Register() {
                       placeholder="Enter your identity"
                       value={form.name}
                       onChange={handleChange}
-                      onFocus={() => setFocusedField('name')}
-                      onBlur={() => setFocusedField('')}
+                      onFocus={() => handleFieldFocus('name')}
+                      onBlur={handleFieldBlur}
                       minLength={2}
                       maxLength={100}
                       autoComplete="name"
@@ -266,7 +296,12 @@ export default function Register() {
                   </div>
                 </div>
 
-                <div className={`cyber-field ${focusedField === 'email' ? 'field-active' : ''}`}>
+                {/* EMAIL */}
+                <div
+                  className={`cyber-field ${
+                    focusedField === 'email' ? 'field-active' : ''
+                  }`}
+                >
                   <label htmlFor="register-email">
                     <span>02 / EMAIL ADDRESS</span>
                     <span className="field-required">REQUIRED</span>
@@ -282,8 +317,8 @@ export default function Register() {
                       placeholder="user@network.com"
                       value={form.email}
                       onChange={handleChange}
-                      onFocus={() => setFocusedField('email')}
-                      onBlur={() => setFocusedField('')}
+                      onFocus={() => handleFieldFocus('email')}
+                      onBlur={handleFieldBlur}
                       autoComplete="email"
                       required
                     />
@@ -292,7 +327,12 @@ export default function Register() {
                   </div>
                 </div>
 
-                <div className={`cyber-field ${focusedField === 'password' ? 'field-active' : ''}`}>
+                {/* PASSWORD */}
+                <div
+                  className={`cyber-field ${
+                    focusedField === 'password' ? 'field-active' : ''
+                  }`}
+                >
                   <label htmlFor="register-password">
                     <span>03 / PASSWORD</span>
                     <span className="field-required">REQUIRED</span>
@@ -308,11 +348,8 @@ export default function Register() {
                       placeholder="Create secure password"
                       value={form.password}
                       onChange={handleChange}
-                      onFocus={() => {
-                        setFocusedField('password')
-                        setCharacterMood('thinking')
-                      }}
-                      onBlur={() => setFocusedField('')}
+                      onFocus={() => handleFieldFocus('password')}
+                      onBlur={handleFieldBlur}
                       minLength={8}
                       maxLength={72}
                       autoComplete="new-password"
@@ -323,9 +360,15 @@ export default function Register() {
                       type="button"
                       className="password-toggle"
                       onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
                     >
-                      {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                      {showPassword ? (
+                        <EyeOff size={17} />
+                      ) : (
+                        <Eye size={17} />
+                      )}
                     </button>
                   </div>
 
@@ -334,7 +377,11 @@ export default function Register() {
                       {[1, 2, 3].map((item) => (
                         <span
                           key={item}
-                          className={passwordStrength >= item ? 'strength-filled' : ''}
+                          className={
+                            passwordStrength >= item
+                              ? 'strength-filled'
+                              : ''
+                          }
                         />
                       ))}
                     </div>
@@ -357,7 +404,11 @@ export default function Register() {
                           key={item.label}
                           className={item.valid ? 'check-valid' : ''}
                         >
-                          {item.valid ? <Check size={12} /> : <span className="check-empty" />}
+                          {item.valid ? (
+                            <Check size={12} />
+                          ) : (
+                            <span className="check-empty" />
+                          )}
                           {item.label}
                         </div>
                       ))}
@@ -365,6 +416,7 @@ export default function Register() {
                   )}
                 </div>
 
+                {/* SUBMIT */}
                 <button
                   className="cyber-submit-button"
                   type="submit"
@@ -374,10 +426,16 @@ export default function Register() {
 
                   <span className="submit-button-content">
                     <ShieldCheck size={18} />
-                    {loading ? 'INITIALIZING...' : success ? 'ACCESS GRANTED' : 'CREATE ACCOUNT'}
+                    {loading
+                      ? 'INITIALIZING...'
+                      : success
+                        ? 'ACCESS GRANTED'
+                        : 'CREATE ACCOUNT'}
                   </span>
 
-                  {!loading && !success && <ArrowRight size={19} />}
+                  {!loading && !success && (
+                    <ArrowRight size={19} />
+                  )}
                 </button>
               </form>
 

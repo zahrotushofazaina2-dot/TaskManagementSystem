@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState } from 'react'
 import {
   ArrowLeft,
@@ -25,14 +26,14 @@ function formatDate(value) {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return '-'
 
-  return date.toLocaleDateString('id-ID', {
+  return date.toLocaleDateString('en-US', {
     day: '2-digit',
     month: 'long',
     year: 'numeric',
   })
 }
 
-export default function AdminUsers({ currentUser, onBack }) {
+export default function AdminUsers({ currentUser, onBack, onActionSuccess }) {
   const [users, setUsers] = useState([])
   const [pagination, setPagination] = useState({
     total: 0,
@@ -91,7 +92,7 @@ export default function AdminUsers({ currentUser, onBack }) {
         total_pages: paginationData.total_pages ?? 1,
       })
     } catch (err) {
-      setError(err.message || 'Gagal mengambil daftar pengguna.')
+      setError(err.message || 'Failed to fetch user list.')
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -125,7 +126,7 @@ export default function AdminUsers({ currentUser, onBack }) {
       const response = await api.get(`/api/v1/admin/users/${userID}`)
       setSelectedUser(getData(response))
     } catch (err) {
-      setDetailError(err.message || 'Gagal mengambil detail pengguna.')
+      setDetailError(err.message || 'Failed to fetch user details.')
     } finally {
       setDetailLoading(false)
     }
@@ -135,7 +136,7 @@ export default function AdminUsers({ currentUser, onBack }) {
     if (newRole === user.role) return
 
     const confirmed = window.confirm(
-      `Ubah role ${user.name} dari ${user.role} menjadi ${newRole}?`
+      `Are you sure you want to change ${user.name}'s role from ${user.role} to ${newRole}?`
     )
 
     if (!confirmed) return
@@ -149,14 +150,16 @@ export default function AdminUsers({ currentUser, onBack }) {
         role: newRole,
       })
 
-      setNotice(`Role ${user.name} berhasil diubah menjadi ${newRole}.`)
+      onActionSuccess?.()
+
+      setNotice(`Successfully updated ${user.name}'s role to ${newRole}.`)
       await loadUsers(true)
 
       if (selectedUser?.id === user.id) {
         await openUserDetail(user.id)
       }
     } catch (err) {
-      setError(err.message || 'Gagal mengubah role pengguna.')
+      setError(err.message || 'Failed to update user role.')
     } finally {
       setUpdatingID(null)
     }
@@ -164,10 +167,10 @@ export default function AdminUsers({ currentUser, onBack }) {
 
   async function updateStatus(user) {
     const nextStatus = !user.is_active
-    const action = nextStatus ? 'mengaktifkan' : 'menonaktifkan'
+    const action = nextStatus ? 'activate' : 'deactivate'
 
     const confirmed = window.confirm(
-      `Yakin ingin ${action} akun ${user.name}?`
+      `Are you sure you want to ${action} ${user.name}'s account?`
     )
 
     if (!confirmed) return
@@ -181,8 +184,10 @@ export default function AdminUsers({ currentUser, onBack }) {
         is_active: nextStatus,
       })
 
+      onActionSuccess?.()
+
       setNotice(
-        `Akun ${user.name} berhasil ${nextStatus ? 'diaktifkan' : 'dinonaktifkan'}.`
+        `Successfully ${nextStatus ? 'activated' : 'deactivated'} ${user.name}'s account.`
       )
 
       await loadUsers(true)
@@ -191,7 +196,7 @@ export default function AdminUsers({ currentUser, onBack }) {
         await openUserDetail(user.id)
       }
     } catch (err) {
-      setError(err.message || 'Gagal mengubah status akun.')
+      setError(err.message || 'Failed to update user status.')
     } finally {
       setUpdatingID(null)
     }
@@ -210,12 +215,12 @@ export default function AdminUsers({ currentUser, onBack }) {
         <div>
           <button className="admin-back-button" onClick={onBack}>
             <ArrowLeft size={17} />
-            Kembali ke Dashboard
+            Back to Dashboard
           </button>
 
           <span className="admin-eyebrow">ADMINISTRATION</span>
-          <h2>Kelola Pengguna</h2>
-          <p>Kelola role dan status akun seluruh pengguna sistem.</p>
+          <h2>Manage Users</h2>
+          <p>Manage user roles and account statuses across the system.</p>
         </div>
 
         <button
@@ -231,25 +236,25 @@ export default function AdminUsers({ currentUser, onBack }) {
       <div className="admin-user-summary">
         <article>
           <div className="admin-summary-icon"><Users size={19} /></div>
-          <span>Total pengguna</span>
+          <span>Total Users</span>
           <strong>{pagination.total}</strong>
         </article>
 
         <article>
           <div className="admin-summary-icon"><UserCheck size={19} /></div>
-          <span>Aktif di halaman ini</span>
+          <span>Active on This Page</span>
           <strong>{activeCount}</strong>
         </article>
 
         <article>
           <div className="admin-summary-icon"><UserX size={19} /></div>
-          <span>Nonaktif di halaman ini</span>
+          <span>Inactive on This Page</span>
           <strong>{inactiveCount}</strong>
         </article>
 
         <article>
           <div className="admin-summary-icon"><ShieldCheck size={19} /></div>
-          <span>Admin di halaman ini</span>
+          <span>Admins on This Page</span>
           <strong>{adminCount}</strong>
         </article>
       </div>
@@ -272,11 +277,11 @@ export default function AdminUsers({ currentUser, onBack }) {
       <section className="admin-users-panel">
         <div className="admin-users-panel-heading">
           <div>
-            <h3>Daftar Pengguna</h3>
-            <p>Cari akun, filter role, dan atur status pengguna.</p>
+            <h3>User List</h3>
+            <p>Search accounts, filter by role, and manage user statuses.</p>
           </div>
           <span className="admin-total-label">
-            {pagination.total} pengguna
+            {pagination.total} users
           </span>
         </div>
 
@@ -286,9 +291,9 @@ export default function AdminUsers({ currentUser, onBack }) {
             <input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Cari nama atau email..."
+              placeholder="Search by name or email..."
             />
-            <button type="submit">Cari</button>
+            <button type="submit">Search</button>
           </form>
 
           <select
@@ -298,7 +303,7 @@ export default function AdminUsers({ currentUser, onBack }) {
               setRoleFilter(event.target.value)
             }}
           >
-            <option value="">Semua Role</option>
+            <option value="">All Roles</option>
             <option value="USER">USER</option>
             <option value="ADMIN">ADMIN</option>
           </select>
@@ -310,9 +315,9 @@ export default function AdminUsers({ currentUser, onBack }) {
               setStatusFilter(event.target.value)
             }}
           >
-            <option value="">Semua Status</option>
-            <option value="true">Aktif</option>
-            <option value="false">Nonaktif</option>
+            <option value="">All Statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
           </select>
 
           <button className="admin-reset-button" onClick={resetFilters}>
@@ -324,12 +329,12 @@ export default function AdminUsers({ currentUser, onBack }) {
           <table className="admin-users-table">
             <thead>
               <tr>
-                <th>Pengguna</th>
+                <th>User</th>
                 <th>ID</th>
                 <th>Role</th>
-                <th>Status Akun</th>
-                <th>Bergabung</th>
-                <th>Kelola</th>
+                <th>Account Status</th>
+                <th>Joined Date</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -337,13 +342,13 @@ export default function AdminUsers({ currentUser, onBack }) {
               {loading ? (
                 <tr>
                   <td colSpan="6" className="admin-users-empty">
-                    Memuat daftar pengguna...
+                    Loading users...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="admin-users-empty">
-                    Tidak ada pengguna yang cocok dengan filter.
+                    No users match the selected filters.
                   </td>
                 </tr>
               ) : (
@@ -361,7 +366,7 @@ export default function AdminUsers({ currentUser, onBack }) {
                           <div>
                             <strong>{user.name}</strong>
                             <span>{user.email}</span>
-                            {isSelf && <small>Akun kamu</small>}
+                            {isSelf && <small>Your Account</small>}
                           </div>
                         </div>
                       </td>
@@ -386,7 +391,7 @@ export default function AdminUsers({ currentUser, onBack }) {
                             ? 'admin-account-status active'
                             : 'admin-account-status inactive'
                         }>
-                          {user.is_active ? 'Aktif' : 'Nonaktif'}
+                          {user.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
 
@@ -396,7 +401,7 @@ export default function AdminUsers({ currentUser, onBack }) {
                         <div className="admin-user-actions">
                           <button
                             className="admin-detail-button"
-                            title="Lihat detail"
+                            title="View Details"
                             onClick={() => openUserDetail(user.id)}
                           >
                             <Eye size={16} />
@@ -414,8 +419,8 @@ export default function AdminUsers({ currentUser, onBack }) {
                             {isUpdating
                               ? '...'
                               : user.is_active
-                                ? 'Nonaktifkan'
-                                : 'Aktifkan'}
+                                ? 'Deactivate'
+                                : 'Activate'}
                           </button>
                         </div>
                       </td>
@@ -429,7 +434,7 @@ export default function AdminUsers({ currentUser, onBack }) {
 
         <div className="admin-users-pagination">
           <span>
-            Halaman {page} dari {totalPages}
+            Page {page} of {totalPages}
           </span>
 
           <div>
@@ -437,13 +442,13 @@ export default function AdminUsers({ currentUser, onBack }) {
               disabled={page <= 1 || loading}
               onClick={() => setPage((value) => value - 1)}
             >
-              Sebelumnya
+              Previous
             </button>
             <button
               disabled={page >= totalPages || loading}
               onClick={() => setPage((value) => value + 1)}
             >
-              Berikutnya
+              Next
             </button>
           </div>
         </div>
@@ -463,7 +468,7 @@ export default function AdminUsers({ currentUser, onBack }) {
             <div className="admin-detail-heading">
               <div>
                 <span className="admin-eyebrow">USER INFORMATION</span>
-                <h3>Detail Pengguna</h3>
+                <h3>User Details</h3>
               </div>
               <button
                 className="admin-detail-close"
@@ -477,7 +482,7 @@ export default function AdminUsers({ currentUser, onBack }) {
             </div>
 
             {detailLoading ? (
-              <p className="admin-detail-loading">Memuat detail pengguna...</p>
+              <p className="admin-detail-loading">Loading user details...</p>
             ) : detailError ? (
               <div className="admin-message admin-message-error">
                 {detailError}
@@ -502,14 +507,14 @@ export default function AdminUsers({ currentUser, onBack }) {
                   </div>
                   <div>
                     <span>Status</span>
-                    <strong>{detailUser.is_active ? 'Aktif' : 'Nonaktif'}</strong>
+                    <strong>{detailUser.is_active ? 'Active' : 'Inactive'}</strong>
                   </div>
                   <div>
-                    <span>Bergabung</span>
+                    <span>Joined Date</span>
                     <strong>{formatDate(detailUser.created_at)}</strong>
                   </div>
                   <div>
-                    <span>Total Task</span>
+                    <span>Total Tasks</span>
                     <strong>
                       {detailUser.total_tasks ??
                         detailUser.task_count ??

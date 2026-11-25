@@ -71,6 +71,8 @@
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.5'/%3E%3C/svg%3E");
 }
 
+/* TOPBAR */
+
 .cyber-topbar {
   position: relative;
   z-index: 6;
@@ -136,14 +138,16 @@
   color: var(--cyber-pink);
 }
 
+/* MAIN LAYOUT */
+
 .register-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(430px, 0.88fr);
-  width: min(1450px, 100%);
+  width: min(1550px, 100%);
   flex: 1;
   margin: 0 auto;
-  padding: 45px 5.5%;
-  gap: clamp(35px, 7vw, 105px);
+  padding: 35px 4%;
+  gap: clamp(25px, 4vw, 65px);
 }
 
 /* LEFT VISUAL */
@@ -174,12 +178,14 @@
   left: 0;
 }
 
+/* MASCOT AREA */
+
 .visual-main {
   position: relative;
   display: grid;
   place-items: center;
-  width: min(100%, 440px);
-  height: 340px;
+  width: min(100%, 580px);
+  height: 560px;
   margin: 0 auto 5px;
 }
 
@@ -191,14 +197,14 @@
 }
 
 .orbit-one {
-  width: 320px;
-  height: 160px;
+  width: 480px;
+  height: 230px;
   animation: orbit-spin 16s linear infinite;
 }
 
 .orbit-two {
-  width: 260px;
-  height: 260px;
+  width: 420px;
+  height: 420px;
   border-color: rgba(255, 46, 147, 0.2);
   border-style: dashed;
   animation: orbit-spin 25s linear infinite reverse;
@@ -207,9 +213,14 @@
 .register-character {
   position: relative;
   z-index: 2;
-  width: 240px;
-  height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 540px;
+  height: 540px;
+  flex-shrink: 0;
   animation: character-hover 4.5s ease-in-out infinite;
+  transition: filter 0.3s ease;
 }
 
 .character-image-placeholder {
@@ -232,6 +243,7 @@
   content: "";
   position: absolute;
   inset: 9px;
+  z-index: 3;
   border: 1px solid rgba(255, 46, 147, 0.3);
   pointer-events: none;
 }
@@ -243,30 +255,16 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  object-position: center bottom;
+  object-position: center center;
 }
+
+/* HIDE PLACEHOLDER TEXT */
 
 .character-placeholder-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 9px;
-  color: #a6a8b5;
-  font-family: 'Share Tech Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 1px;
+  display: none !important;
 }
 
-.character-symbol {
-  color: var(--cyber-pink);
-  font-size: 60px;
-  text-shadow: 0 0 25px var(--cyber-pink);
-}
-
-.character-placeholder-content small {
-  color: var(--cyber-cyan);
-  font-size: 8px;
-}
+/* FLOATING TAGS */
 
 .visual-floating-tag {
   position: absolute;
@@ -294,6 +292,8 @@
   bottom: 35px;
   left: 0;
 }
+
+/* VISUAL COPY */
 
 .visual-copy {
   position: relative;
@@ -451,6 +451,8 @@
   font-size: 12px;
 }
 
+/* ALERTS */
+
 .cyber-alert {
   display: flex;
   align-items: flex-start;
@@ -473,6 +475,8 @@
   background: rgba(0, 240, 255, 0.07);
   color: var(--cyber-cyan);
 }
+
+/* FORM */
 
 .cyber-register-form {
   display: flex;
@@ -564,6 +568,8 @@
   color: var(--cyber-cyan);
 }
 
+/* PASSWORD STRENGTH */
+
 .password-strength {
   display: flex;
   align-items: center;
@@ -620,6 +626,8 @@
   border-radius: 50%;
 }
 
+/* SUBMIT BUTTON */
+
 .cyber-submit-button {
   position: relative;
   display: flex;
@@ -662,6 +670,8 @@
   align-items: center;
   gap: 11px;
 }
+
+/* LOGIN LINK */
 
 .register-divider {
   display: flex;
@@ -783,12 +793,84 @@
   }
 }
 
+/* MASCOT MOOD STATES */
+
+.register-character.mood-thinking {
+  filter: hue-rotate(12deg);
+}
+
+.register-character.mood-working {
+  filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.45));
+}
+
+.register-character.mood-happy {
+  filter: drop-shadow(0 0 22px rgba(99, 245, 176, 0.55));
+}
+
+.register-character.mood-error {
+  filter: drop-shadow(0 0 18px rgba(255, 100, 124, 0.5));
+}
+
+.register-character.mood-happy .character-image-placeholder {
+  border-color: rgba(99, 245, 176, 0.65);
+  box-shadow: 0 0 45px rgba(99, 245, 176, 0.2);
+}
+
+.register-character.mood-error .character-image-placeholder {
+  border-color: rgba(255, 100, 124, 0.65);
+}
+
+.register-character.mood-happy .character-symbol {
+  color: #63f5b0;
+  text-shadow: 0 0 25px #63f5b0;
+}
+
+.register-character.mood-happy .character-placeholder-content small {
+  color: #63f5b0;
+}
+
+.register-character.mood-error .character-symbol {
+  color: #ff647c;
+  text-shadow: 0 0 25px #ff647c;
+}
+
+.register-character.mood-error .character-placeholder-content small {
+  color: #ff647c;
+}
+
 /* RESPONSIVE */
+
+@media (max-width: 1250px) {
+  .register-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(400px, 0.9fr);
+    gap: 25px;
+  }
+
+  .visual-main {
+    width: 100%;
+    height: 500px;
+  }
+
+  .register-character {
+    width: 480px;
+    height: 480px;
+  }
+
+  .orbit-one {
+    width: 400px;
+    height: 200px;
+  }
+
+  .orbit-two {
+    width: 370px;
+    height: 370px;
+  }
+}
 
 @media (max-width: 1050px) {
   .register-layout {
     grid-template-columns: 0.8fr 1fr;
-    gap: 30px;
+    gap: 25px;
     padding-inline: 3%;
   }
 
@@ -797,7 +879,22 @@
   }
 
   .visual-main {
-    height: 290px;
+    height: 420px;
+  }
+
+  .register-character {
+    width: 400px;
+    height: 400px;
+  }
+
+  .orbit-one {
+    width: 340px;
+    height: 170px;
+  }
+
+  .orbit-two {
+    width: 320px;
+    height: 320px;
   }
 }
 
@@ -819,22 +916,33 @@
   }
 
   .visual-main {
-    height: 220px;
+    width: 100%;
+    height: 390px;
   }
 
   .register-character {
-    width: 160px;
-    height: 190px;
+    width: min(360px, 90vw);
+    height: min(360px, 90vw);
   }
 
   .orbit-one {
-    width: 220px;
-    height: 110px;
+    width: 300px;
+    height: 150px;
   }
 
   .orbit-two {
-    width: 190px;
-    height: 190px;
+    width: 290px;
+    height: 290px;
+  }
+
+  .tag-top {
+    top: 20px;
+    right: 0;
+  }
+
+  .tag-bottom {
+    bottom: 15px;
+    left: 0;
   }
 
   .visual-copy {
@@ -873,6 +981,25 @@
 
   .register-layout {
     padding-inline: 12px;
+  }
+
+  .visual-main {
+    height: 320px;
+  }
+
+  .register-character {
+    width: min(300px, 86vw);
+    height: min(300px, 86vw);
+  }
+
+  .orbit-one {
+    width: 250px;
+    height: 125px;
+  }
+
+  .orbit-two {
+    width: 240px;
+    height: 240px;
   }
 
   .register-form-content {

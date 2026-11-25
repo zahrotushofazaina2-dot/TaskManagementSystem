@@ -1,5 +1,5 @@
 ﻿
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Activity,
   AlertCircle,
@@ -36,6 +36,43 @@ const emptyForm = {
   due_date: '',
 }
 
+const mascotMoods = {
+  idle: {
+    emoji: '✦',
+    title: 'Standing by',
+    message: "I'm ready to accompany you!",
+  },
+  focus: {
+    emoji: '⌨',
+    title: 'Focus mode',
+    message: 'Working on something?',
+  },
+  working: {
+    emoji: '⚙',
+    title: 'Processing',
+    message: 'Just a moment, processing...',
+  },
+  happy: {
+    emoji: '✧',
+    title: 'Mission complete',
+    message: 'Nice! Successfully completed.',
+  },
+  excited: {
+    emoji: '★',
+    title: 'Amazing!',
+    message: 'You just completed a task!',
+  },
+  confused: {
+    emoji: '?',
+    title: 'Something is wrong',
+    message: 'Hmm, please check your input.',
+  },
+  sad: {
+    emoji: '!',
+    title: 'System error',
+    message: "Something went wrong. Let's try again.",
+  },
+}
 function unwrapData(response) {
   return response?.data ?? response ?? {}
 }
@@ -46,6 +83,7 @@ function extractCategories(response) {
   if (Array.isArray(data)) return data
   if (Array.isArray(data.categories)) return data.categories
   if (Array.isArray(data.data)) return data.data
+  if (Array.isArray(data.data?.categories)) return data.data.categories
 
   return []
 }
@@ -75,14 +113,12 @@ function StatCard({
     <article className={`stat-card ${className}`}>
       <div className="stat-card-top">
         <span>{label}</span>
-
         <div className="stat-icon">
           <Icon size={19} />
         </div>
       </div>
 
       <strong>{value ?? 0}</strong>
-
       {detail && <small>{detail}</small>}
     </article>
   )
@@ -120,7 +156,7 @@ function Pagination({ page, totalPages, onPageChange }) {
   return (
     <div className="pagination">
       <span>
-        Halaman {page} dari {pages}
+        page {page} of {pages}
       </span>
 
       <div>
@@ -129,7 +165,7 @@ function Pagination({ page, totalPages, onPageChange }) {
           disabled={page <= 1}
           onClick={() => onPageChange(page - 1)}
         >
-          Sebelumnya
+          Prev
         </button>
 
         <button
@@ -137,7 +173,7 @@ function Pagination({ page, totalPages, onPageChange }) {
           disabled={page >= pages}
           onClick={() => onPageChange(page + 1)}
         >
-          Berikutnya
+          Next
         </button>
       </div>
     </div>
@@ -148,84 +184,115 @@ function Pagination({ page, totalPages, onPageChange }) {
    DASHBOARD MASCOT
 ========================================= */
 
-function MascotCompanion() {
-  const [imageFailed, setImageFailed] = useState(false)
+
+function MascotCompanion({ mood = 'idle' }) {
+  const currentMood = mascotMoods[mood] || mascotMoods.idle
+
+  const mascotImages = {
+    idle: '/images/mascot/mascot-idle.png',
+    focus: '/images/mascot/mascot-focus.png',
+    working: '/images/mascot/mascot-focus.png',
+    happy: '/images/mascot/mascot-happy.png',
+    excited: '/images/mascot/mascot-excited.png',
+    confused: '/images/mascot/mascot-confused.png',
+    sad: '/images/mascot/mascot-sad.png',
+  }
+
+  const mascotSrc = mascotImages[mood] || mascotImages.idle
 
   return (
-    <div className="welcome-mascot">
+    <aside
+      className={`welcome-mascot mascot-mood-${mood}`}
+      aria-label="TaskFlow mascot companion"
+    >
       <div className="mascot-glow" />
 
       <div className="mascot-image-frame">
-        {!imageFailed ? (
-          <img
-            className="mascot-image"
-            src="/images/mascot/mascot-idle.png"
-            alt="TaskFlow mascot"
-            onError={() => setImageFailed(true)}
-          />
-        ) : (
-          <div className="mascot-fallback">
-            <div className="mascot-fallback-status">
-              <span />
-              SYSTEM COMPANION
-            </div>
+        <img
+          key={mascotSrc}
+          className="mascot-image"
+          src={mascotSrc}
+          alt={`TaskFlow mascot ${mood}`}
+          onError={(event) => {
+            event.currentTarget.style.display = 'none'
+            event.currentTarget.nextElementSibling.style.display = 'flex'
+          }}
+        />
 
-            <div className="dashboard-anime-character">
-              <div className="dashboard-character-halo" />
-              <div className="dashboard-character-hair-back" />
-              <div className="dashboard-character-neck" />
-
-              <div className="dashboard-character-face">
-                <span className="dashboard-character-ear left" />
-                <span className="dashboard-character-ear right" />
-
-                <div className="dashboard-character-eyebrow left" />
-                <div className="dashboard-character-eyebrow right" />
-
-                <div className="dashboard-character-eye left">
-                  <span />
-                </div>
-
-                <div className="dashboard-character-eye right">
-                  <span />
-                </div>
-
-                <div className="dashboard-character-blush left" />
-                <div className="dashboard-character-blush right" />
-                <div className="dashboard-character-mouth" />
-              </div>
-
-              <div className="dashboard-character-hair">
-                <span className="dashboard-hair-strand strand-one" />
-                <span className="dashboard-hair-strand strand-two" />
-                <span className="dashboard-hair-strand strand-three" />
-              </div>
-
-              <div className="dashboard-character-accessory">✦</div>
-
-              <div className="dashboard-character-body">
-                <span className="dashboard-character-collar left" />
-                <span className="dashboard-character-collar right" />
-                <span className="dashboard-character-tie" />
-              </div>
-
-              <div className="dashboard-character-shadow" />
-            </div>
-
-            <div className="mascot-fallback-caption">
-              <strong>TaskFlow Companion</strong>
-              <small>READY TO HELP YOU</small>
-            </div>
+        <div className="mascot-fallback">
+          <div className="mascot-fallback-status">
+            <span />
+            SYSTEM COMPANION
           </div>
-        )}
+
+          <div className="dashboard-anime-character">
+            <div className="dashboard-character-halo" />
+            <div className="dashboard-character-hair-back" />
+            <div className="dashboard-character-neck" />
+
+            <div className="dashboard-character-face">
+              <span className="dashboard-character-ear left" />
+              <span className="dashboard-character-ear right" />
+
+              <div className="dashboard-character-eyebrow left" />
+              <div className="dashboard-character-eyebrow right" />
+
+              <div className="dashboard-character-eye left">
+                <span />
+              </div>
+
+              <div className="dashboard-character-eye right">
+                <span />
+              </div>
+
+              <div className="dashboard-character-blush left" />
+              <div className="dashboard-character-blush right" />
+              <div className="dashboard-character-mouth" />
+            </div>
+
+            <div className="dashboard-character-hair">
+              <span className="dashboard-hair-strand strand-one" />
+              <span className="dashboard-hair-strand strand-two" />
+              <span className="dashboard-hair-strand strand-three" />
+            </div>
+
+            <div className="dashboard-character-accessory">✦</div>
+
+            <div className="dashboard-character-body">
+              <span className="dashboard-character-collar left" />
+              <span className="dashboard-character-collar right" />
+              <span className="dashboard-character-tie" />
+            </div>
+
+            <div className="dashboard-character-shadow" />
+          </div>
+
+          <div className="mascot-fallback-caption">
+            <strong>TaskFlow Companion</strong>
+            <small>READY TO HELP YOU</small>
+          </div>
+        </div>
+
+        <div className="mascot-emotion-indicator">
+          {currentMood.emoji}
+        </div>
+      </div>
+
+      <div className="mascot-dialog">
+        <span className="mascot-dialog-status">
+          {currentMood.title}
+        </span>
+
+        <p>{currentMood.message}</p>
       </div>
 
       <span className="mascot-sparkle sparkle-one">✦</span>
       <span className="mascot-sparkle sparkle-two">✧</span>
       <span className="mascot-sparkle sparkle-three">✦</span>
-    </div>
+    </aside>
   )
 }
+
 
 /* =========================================
    MAIN DASHBOARD
@@ -258,19 +325,45 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [refreshing, setRefreshing] = useState(false)
 
-  /* Task modal */
   const [modalOpen, setModalOpen] = useState(false)
   const [editingTask, setEditingTask] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState('')
 
-  /* Category modal */
   const [categoryModalOpen, setCategoryModalOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
   const [categoryName, setCategoryName] = useState('')
   const [categorySaving, setCategorySaving] = useState(false)
   const [categoryError, setCategoryError] = useState('')
+
+  /* MASCOT MOOD */
+
+  const [mascotMood, setMascotMood] = useState('idle')
+  const mascotTimer = useRef(null)
+
+  const triggerMascotMood = useCallback((mood, duration = 2600) => {
+    setMascotMood(mood)
+
+    if (mascotTimer.current) {
+      clearTimeout(mascotTimer.current)
+    }
+
+    if (mood !== 'idle') {
+      mascotTimer.current = setTimeout(() => {
+        setMascotMood('idle')
+        mascotTimer.current = null
+      }, duration)
+    }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      if (mascotTimer.current) {
+        clearTimeout(mascotTimer.current)
+      }
+    }
+  }, [])
 
   /* =========================================
      LOAD DASHBOARD
@@ -284,6 +377,7 @@ export default function Dashboard() {
     }
 
     setError('')
+    triggerMascotMood('working', 10000)
 
     try {
       if (isAdmin) {
@@ -343,13 +437,23 @@ export default function Dashboard() {
 
         setCategories(extractCategories(categoryResponse))
       }
+
+      setMascotMood('idle')
     } catch (err) {
       setError(err.message || 'Gagal memuat dashboard.')
+      triggerMascotMood('sad', 4000)
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [isAdmin, page, search, statusFilter, priorityFilter])
+  }, [
+    isAdmin,
+    page,
+    search,
+    statusFilter,
+    priorityFilter,
+    triggerMascotMood,
+  ])
 
   useEffect(() => {
     loadDashboard()
@@ -364,6 +468,7 @@ export default function Dashboard() {
     setForm(emptyForm)
     setFormError('')
     setModalOpen(true)
+    triggerMascotMood('focus')
   }
 
   function openEditModal(task) {
@@ -384,6 +489,7 @@ export default function Dashboard() {
 
     setFormError('')
     setModalOpen(true)
+    triggerMascotMood('focus')
   }
 
   function updateForm(field, value) {
@@ -391,6 +497,8 @@ export default function Dashboard() {
       ...current,
       [field]: value,
     }))
+
+    triggerMascotMood('focus', 1800)
   }
 
   async function handleSubmit(event) {
@@ -399,16 +507,19 @@ export default function Dashboard() {
 
     if (form.title.trim().length < 2) {
       setFormError('Judul task minimal 2 karakter.')
+      triggerMascotMood('confused', 3500)
       return
     }
 
     if (form.title.trim().length > 200) {
       setFormError('Judul task maksimal 200 karakter.')
+      triggerMascotMood('confused', 3500)
       return
     }
 
     if (form.description.length > 5000) {
       setFormError('Deskripsi maksimal 5000 karakter.')
+      triggerMascotMood('confused', 3500)
       return
     }
 
@@ -424,6 +535,7 @@ export default function Dashboard() {
     }
 
     setSaving(true)
+    triggerMascotMood('working', 10000)
 
     try {
       if (editingTask) {
@@ -439,8 +551,14 @@ export default function Dashboard() {
       setForm(emptyForm)
 
       await loadDashboard(true)
+
+      triggerMascotMood(
+        payload.status === 'DONE' ? 'excited' : 'happy',
+        4000
+      )
     } catch (err) {
       setFormError(err.message || 'Gagal menyimpan task.')
+      triggerMascotMood('sad', 4000)
     } finally {
       setSaving(false)
     }
@@ -453,11 +571,15 @@ export default function Dashboard() {
 
     if (!confirmed) return
 
+    triggerMascotMood('working', 10000)
+
     try {
       await api.delete(`/api/v1/tasks/${task.id}`)
       await loadDashboard(true)
+      triggerMascotMood('happy', 3500)
     } catch (err) {
       window.alert(err.message || 'Gagal menghapus task.')
+      triggerMascotMood('sad', 4000)
     }
   }
 
@@ -470,6 +592,7 @@ export default function Dashboard() {
     setCategoryName('')
     setCategoryError('')
     setCategoryModalOpen(true)
+    triggerMascotMood('focus')
   }
 
   function openEditCategoryModal(category) {
@@ -477,6 +600,7 @@ export default function Dashboard() {
     setCategoryName(category.name || '')
     setCategoryError('')
     setCategoryModalOpen(true)
+    triggerMascotMood('focus')
   }
 
   async function handleCategorySubmit(event) {
@@ -486,16 +610,19 @@ export default function Dashboard() {
     const trimmedName = categoryName.trim()
 
     if (!trimmedName) {
-      setCategoryError('Nama kategori wajib diisi.')
+      setCategoryError('Category name is required.')
+      triggerMascotMood('confused', 3500)
       return
     }
 
     if (trimmedName.length > 100) {
-      setCategoryError('Nama kategori maksimal 100 karakter.')
+      setCategoryError('Category name maximum 100 characters.')
+      triggerMascotMood('confused', 3500)
       return
     }
 
     setCategorySaving(true)
+    triggerMascotMood('working', 10000)
 
     try {
       if (editingCategory) {
@@ -514,10 +641,10 @@ export default function Dashboard() {
       setCategoryName('')
 
       await loadDashboard(true)
+      triggerMascotMood('happy', 3500)
     } catch (err) {
-      setCategoryError(
-        err.message || 'Gagal menyimpan kategori.'
-      )
+      setCategoryError(err.message || 'Failed to save category.')
+      triggerMascotMood('sad', 4000)
     } finally {
       setCategorySaving(false)
     }
@@ -525,16 +652,20 @@ export default function Dashboard() {
 
   async function handleDeleteCategory(category) {
     const confirmed = window.confirm(
-      `Yakin ingin menghapus kategori "${category.name}"? Task yang menggunakan kategori ini tidak akan ikut terhapus.`
+      `Are you sure you want to delete the category? "${category.name}"? Tasks that use this category will not be deleted.`
     )
 
     if (!confirmed) return
 
+    triggerMascotMood('working', 10000)
+
     try {
       await api.delete(`/api/v1/categories/${category.id}`)
       await loadDashboard(true)
+      triggerMascotMood('happy', 3500)
     } catch (err) {
-      window.alert(err.message || 'Gagal menghapus kategori.')
+      window.alert(err.message || 'Failed to delete category.')
+      triggerMascotMood('sad', 4000)
     }
   }
 
@@ -546,6 +677,7 @@ export default function Dashboard() {
     event.preventDefault()
     setPage(1)
     setSearch(searchInput.trim())
+    triggerMascotMood('focus')
   }
 
   function clearFilters() {
@@ -554,6 +686,7 @@ export default function Dashboard() {
     setStatusFilter('')
     setPriorityFilter('')
     setPage(1)
+    triggerMascotMood('happy')
   }
 
   const totalPages = pagination.total_pages || 1
@@ -593,6 +726,8 @@ export default function Dashboard() {
         </div>
       </header>
 
+      <MascotCompanion mood={mascotMood} />
+
       <section className="dashboard-content">
         <div className="welcome-section">
           <div className="welcome-copy">
@@ -608,8 +743,8 @@ export default function Dashboard() {
 
             <p>
               {isAdmin
-                ? 'Pantau aktivitas sistem dan kelola pengguna TaskFlow.'
-                : 'Setiap langkah kecil membawamu lebih dekat ke target.'}
+                ? 'Monitor system activity and manage TaskFlow users.'
+                : 'Every small step brings you closer to your goals.'}
             </p>
 
             <div className="welcome-meta">
@@ -617,8 +752,6 @@ export default function Dashboard() {
               <span>Workspace is ready</span>
             </div>
           </div>
-
-          <MascotCompanion />
 
           <button
             className="refresh-button"
@@ -649,15 +782,16 @@ export default function Dashboard() {
           className="dashboard-view-transition"
         >
           {loading ? (
-            <div className="dashboard-loading">
-              <div className="loading-spinner" />
-              <p>Memuat data dashboard...</p>
-            </div>
-          ) : isAdmin && adminView === 'users' ? (
-            <AdminUsers
-              currentUser={user}
-              onBack={() => setAdminView('overview')}
-            />
+  <div className="dashboard-loading">
+    <div className="loading-spinner" />
+    <p>Memuat data dashboard...</p>
+  </div>
+) : isAdmin && adminView === 'users' ? (
+  <AdminUsers
+    currentUser={user}
+    onBack={() => setAdminView('overview')}
+    onActionSuccess={() => triggerMascotMood('happy')}
+  />
           ) : isAdmin ? (
             <AdminDashboard
               stats={stats}
@@ -691,6 +825,7 @@ export default function Dashboard() {
               openCreateCategoryModal={openCreateCategoryModal}
               openEditCategoryModal={openEditCategoryModal}
               handleDeleteCategory={handleDeleteCategory}
+              triggerMascotMood={triggerMascotMood}
             />
           )}
         </div>
@@ -706,6 +841,7 @@ export default function Dashboard() {
                 !saving
               ) {
                 setModalOpen(false)
+                triggerMascotMood('idle')
               }
             }}
           >
@@ -713,15 +849,17 @@ export default function Dashboard() {
               <div className="modal-header">
                 <div>
                   <span className="eyebrow">TASK MANAGEMENT</span>
-
                   <h2>
-                    {editingTask ? 'Edit Task' : 'Buat Task Baru'}
+                    {editingTask ? 'Edit Task' : 'Create New Task'}
                   </h2>
                 </div>
 
                 <button
                   className="icon-button"
-                  onClick={() => setModalOpen(false)}
+                  onClick={() => {
+                    setModalOpen(false)
+                    triggerMascotMood('idle')
+                  }}
                   disabled={saving}
                 >
                   <X size={20} />
@@ -734,6 +872,7 @@ export default function Dashboard() {
 
                   <input
                     value={form.title}
+                    onFocus={() => triggerMascotMood('focus')}
                     onChange={(event) =>
                       updateForm('title', event.target.value)
                     }
@@ -749,10 +888,11 @@ export default function Dashboard() {
 
                   <textarea
                     value={form.description}
+                    onFocus={() => triggerMascotMood('focus')}
                     onChange={(event) =>
                       updateForm('description', event.target.value)
                     }
-                    placeholder="Tambahkan detail task..."
+                    placeholder="additional details about the task..."
                     maxLength={5000}
                     rows={4}
                   />
@@ -763,15 +903,16 @@ export default function Dashboard() {
                 </label>
 
                 <label>
-                  Kategori
+                  Category
 
                   <select
                     value={form.category_id}
+                    onFocus={() => triggerMascotMood('focus')}
                     onChange={(event) =>
                       updateForm('category_id', event.target.value)
                     }
                   >
-                    <option value="">Tanpa kategori</option>
+                    <option value="">No category</option>
 
                     {categories.map((category) => (
                       <option
@@ -790,6 +931,7 @@ export default function Dashboard() {
 
                     <select
                       value={form.priority}
+                      onFocus={() => triggerMascotMood('focus')}
                       onChange={(event) =>
                         updateForm('priority', event.target.value)
                       }
@@ -805,6 +947,7 @@ export default function Dashboard() {
 
                     <select
                       value={form.status}
+                      onFocus={() => triggerMascotMood('focus')}
                       onChange={(event) =>
                         updateForm('status', event.target.value)
                       }
@@ -822,6 +965,7 @@ export default function Dashboard() {
                   <input
                     type="date"
                     value={form.due_date}
+                    onFocus={() => triggerMascotMood('focus')}
                     onChange={(event) =>
                       updateForm('due_date', event.target.value)
                     }
@@ -839,7 +983,10 @@ export default function Dashboard() {
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => setModalOpen(false)}
+                    onClick={() => {
+                      setModalOpen(false)
+                      triggerMascotMood('idle')
+                    }}
                     disabled={saving}
                   >
                     Batal
@@ -851,10 +998,10 @@ export default function Dashboard() {
                     disabled={saving}
                   >
                     {saving
-                      ? 'Menyimpan...'
+                      ? 'Saving...'
                       : editingTask
-                        ? 'Simpan Perubahan'
-                        : 'Buat Task'}
+                        ? 'Save Changes'
+                        : 'Create Task'}
                   </button>
                 </div>
               </form>
@@ -873,6 +1020,7 @@ export default function Dashboard() {
                 !categorySaving
               ) {
                 setCategoryModalOpen(false)
+                triggerMascotMood('idle')
               }
             }}
           >
@@ -883,14 +1031,17 @@ export default function Dashboard() {
 
                   <h2>
                     {editingCategory
-                      ? 'Edit Kategori'
-                      : 'Kategori Baru'}
+                      ? 'Edit Category'
+                      : 'New Category'}
                   </h2>
                 </div>
 
                 <button
                   className="icon-button"
-                  onClick={() => setCategoryModalOpen(false)}
+                  onClick={() => {
+                    setCategoryModalOpen(false)
+                    triggerMascotMood('idle')
+                  }}
                   disabled={categorySaving}
                 >
                   <X size={20} />
@@ -902,14 +1053,16 @@ export default function Dashboard() {
                 className="task-form"
               >
                 <label>
-                  Nama Kategori <span>*</span>
+                  Category Name <span>*</span>
 
                   <input
                     value={categoryName}
-                    onChange={(event) =>
+                    onFocus={() => triggerMascotMood('focus')}
+                    onChange={(event) => {
                       setCategoryName(event.target.value)
-                    }
-                    placeholder="Contoh: Project Sekolah"
+                      triggerMascotMood('focus', 1800)
+                    }}
+                    placeholder="Ex: Homework, Work, Personal"
                     maxLength={100}
                     required
                     autoFocus
@@ -929,7 +1082,10 @@ export default function Dashboard() {
                   <button
                     type="button"
                     className="secondary-button"
-                    onClick={() => setCategoryModalOpen(false)}
+                    onClick={() => {
+                      setCategoryModalOpen(false)
+                      triggerMascotMood('idle')
+                    }}
                     disabled={categorySaving}
                   >
                     Batal
@@ -942,10 +1098,10 @@ export default function Dashboard() {
                   >
                     <Save size={16} />
                     {categorySaving
-                      ? 'Menyimpan...'
+                      ? 'Saving...'
                       : editingCategory
-                        ? 'Simpan Perubahan'
-                        : 'Buat Kategori'}
+                        ? 'Save Changes'
+                        : 'Create Category'}
                   </button>
                 </div>
               </form>
@@ -983,6 +1139,7 @@ function UserDashboard({
   openCreateCategoryModal,
   openEditCategoryModal,
   handleDeleteCategory,
+  triggerMascotMood,
 }) {
   const categoryMap = new Map(
     categories.map((category) => [
@@ -998,14 +1155,14 @@ function UserDashboard({
           icon={ClipboardList}
           label="Total Task"
           value={stats?.total_tasks}
-          detail="Semua task kamu"
+          detail="All your tasks"
         />
 
         <StatCard
           icon={Clock3}
           label="To Do"
           value={stats?.todo}
-          detail="Belum dikerjakan"
+          detail="Not yet completed"
         />
 
         <StatCard
@@ -1019,7 +1176,7 @@ function UserDashboard({
           icon={CheckCircle2}
           label="Done"
           value={stats?.done}
-          detail="Berhasil diselesaikan"
+          detail="Successfully completed"
         />
       </div>
 
@@ -1030,11 +1187,11 @@ function UserDashboard({
           <div>
             <h3>
               <Folder size={19} />
-              Kategori Saya
+              My Categories
             </h3>
 
             <p>
-              Kelompokkan task berdasarkan kategori buatanmu sendiri.
+              Group your tasks by creating custom categories.
             </p>
           </div>
 
@@ -1043,27 +1200,22 @@ function UserDashboard({
             onClick={openCreateCategoryModal}
           >
             <Plus size={18} />
-            Tambah Kategori
+            Add Category
           </button>
         </div>
 
         {categories.length === 0 ? (
           <div className="empty-state category-empty-state">
             <Tag size={32} />
-
-            <strong>Belum ada kategori</strong>
-
+            <strong>No categories available</strong>
             <span>
-              Buat kategori pertama untuk mulai mengelompokkan task.
+              Create your first category to start grouping tasks.
             </span>
           </div>
         ) : (
           <div className="category-list">
             {categories.map((category) => (
-              <article
-                className="category-item"
-                key={category.id}
-              >
+              <article className="category-item" key={category.id}>
                 <div className="category-item-info">
                   <div className="category-icon">
                     <Folder size={18} />
@@ -1071,16 +1223,14 @@ function UserDashboard({
 
                   <div>
                     <strong>{category.name}</strong>
-                    <small>
-                      Kategori #{category.id}
-                    </small>
+                    <small>Category #{category.id}</small>
                   </div>
                 </div>
 
                 <div className="category-actions">
                   <button
                     className="table-icon-button edit"
-                    title="Edit kategori"
+                    title="Edit Category"
                     onClick={() => openEditCategoryModal(category)}
                   >
                     <Pencil size={16} />
@@ -1088,7 +1238,7 @@ function UserDashboard({
 
                   <button
                     className="table-icon-button delete"
-                    title="Hapus kategori"
+                    title="Delete Category"
                     onClick={() => handleDeleteCategory(category)}
                   >
                     <Trash2 size={16} />
@@ -1100,7 +1250,7 @@ function UserDashboard({
         )}
 
         <p className="table-footnote">
-          Total {categories.length} kategori milikmu.
+          Total {categories.length} My Categories.
         </p>
       </section>
 
@@ -1109,8 +1259,8 @@ function UserDashboard({
       <section className="panel task-panel">
         <div className="panel-heading">
           <div>
-            <h3>Daftar Task</h3>
-            <p>Atur dan pantau semua pekerjaanmu.</p>
+            <h3>Task List</h3>
+            <p>Manage and track all your tasks.</p>
           </div>
 
           <button
@@ -1118,7 +1268,7 @@ function UserDashboard({
             onClick={openCreateModal}
           >
             <Plus size={18} />
-            Buat Task
+            Add Task
           </button>
         </div>
 
@@ -1131,9 +1281,11 @@ function UserDashboard({
 
             <input
               value={searchInput}
-              onChange={(event) =>
+              onFocus={() => triggerMascotMood('focus')}
+              onChange={(event) => {
                 setSearchInput(event.target.value)
-              }
+                triggerMascotMood('focus', 1800)
+              }}
               placeholder="Cari judul task..."
             />
 
@@ -1145,9 +1297,10 @@ function UserDashboard({
             onChange={(event) => {
               setStatusFilter(event.target.value)
               setPage(1)
+              triggerMascotMood('focus')
             }}
           >
-            <option value="">Semua Status</option>
+            <option value="">All Status</option>
             <option value="TODO">To Do</option>
             <option value="IN_PROGRESS">In Progress</option>
             <option value="DONE">Done</option>
@@ -1158,9 +1311,10 @@ function UserDashboard({
             onChange={(event) => {
               setPriorityFilter(event.target.value)
               setPage(1)
+              triggerMascotMood('focus')
             }}
           >
-            <option value="">Semua Prioritas</option>
+            <option value="">All Priorities</option>
             <option value="LOW">Low</option>
             <option value="MEDIUM">Medium</option>
             <option value="HIGH">High</option>
@@ -1179,11 +1333,11 @@ function UserDashboard({
             <thead>
               <tr>
                 <th>Task</th>
-                <th>Kategori</th>
-                <th>Prioritas</th>
+                <th>Category</th>
+                <th>Priority</th>
                 <th>Status</th>
                 <th>Deadline</th>
-                <th>Aksi</th>
+                <th>Actions</th>
               </tr>
             </thead>
 
@@ -1193,9 +1347,7 @@ function UserDashboard({
                   <td colSpan="6">
                     <div className="empty-state">
                       <ClipboardList size={35} />
-
                       <strong>Belum ada task</strong>
-
                       <span>
                         Buat task pertamamu untuk mulai mengatur pekerjaan.
                       </span>
@@ -1208,16 +1360,15 @@ function UserDashboard({
                     <td>
                       <div className="task-title-cell">
                         <strong>{task.title}</strong>
-
                         <span>
-                          {task.description || 'Tidak ada deskripsi'}
+                          {task.description || 'No description available'}
                         </span>
                       </div>
                     </td>
 
                     <td>
                       {task.category_id
-                        ? categoryMap.get(String(task.category_id)) || 'Kategori tidak tersedia'
+                        ? categoryMap.get(String(task.category_id)) || 'Category not available'
                         : '-'}
                     </td>
 
@@ -1266,7 +1417,7 @@ function UserDashboard({
         <p className="table-footnote">
           Menampilkan {tasks.length} dari {pagination.total || 0} task
           {categories.length > 0
-            ? ` · ${categories.length} kategori tersedia`
+            ? ` · ${categories.length} Category Available`
             : ''}
         </p>
       </section>
@@ -1298,30 +1449,30 @@ function AdminDashboard({
       <div className="stats-grid admin-stats">
         <StatCard
           icon={Users}
-          label="Total Pengguna"
+          label="Total Users"
           value={users.total}
-          detail={`${users.active || 0} pengguna aktif`}
+          detail={`${users.active || 0} active users`}
         />
 
         <StatCard
           icon={CheckCircle2}
-          label="Pengguna Aktif"
+          label="Active Users"
           value={users.active}
-          detail="Akun aktif"
+          detail="Active accounts"
         />
 
         <StatCard
           icon={AlertCircle}
-          label="Pengguna Nonaktif"
+          label="Nonactive Users"
           value={users.inactive}
-          detail="Akun nonaktif"
+          detail="Nonactive accounts"
         />
 
         <StatCard
           icon={ClipboardList}
           label="Total Task"
           value={taskStats.total}
-          detail={`${categoryStats.total || 0} kategori`}
+          detail={`${categoryStats.total || 0} categories`}
         />
       </div>
 
@@ -1346,7 +1497,7 @@ function AdminDashboard({
 
         <StatCard
           icon={Folder}
-          label="Kategori"
+          label="Category"
           value={categoryStats.total}
         />
       </div>
@@ -1354,8 +1505,8 @@ function AdminDashboard({
       <section className="panel priority-panel">
         <div className="panel-heading">
           <div>
-            <h3>Distribusi Prioritas</h3>
-            <p>Jumlah task berdasarkan tingkat prioritas.</p>
+            <h3>Priority Distribution</h3>
+            <p>Number of tasks based on priority level.</p>
           </div>
 
           <ShieldCheck
@@ -1388,9 +1539,9 @@ function AdminDashboard({
       <section className="panel task-panel">
         <div className="panel-heading">
           <div>
-            <h3>Semua Task Pengguna</h3>
+            <h3>All User Tasks</h3>
             <p>
-              Daftar task dari seluruh akun yang terdaftar.
+              List of tasks from all registered accounts.
             </p>
           </div>
 
@@ -1400,7 +1551,7 @@ function AdminDashboard({
               onClick={onManageUsers}
             >
               <Users size={16} />
-              Kelola Pengguna
+              Manage Users
             </button>
 
             <span className="readonly-label">
@@ -1416,10 +1567,10 @@ function AdminDashboard({
               <tr>
                 <th>Task</th>
                 <th>User ID</th>
-                <th>Kategori ID</th>
-                <th>Prioritas</th>
+                <th>Category ID</th>
+                <th>Priority</th>
                 <th>Status</th>
-                <th>Dibuat</th>
+                <th>Created</th>
               </tr>
             </thead>
 
@@ -1429,11 +1580,9 @@ function AdminDashboard({
                   <td colSpan="6">
                     <div className="empty-state">
                       <ClipboardList size={35} />
-
-                      <strong>Belum ada task</strong>
-
+                      <strong>No tasks available</strong>
                       <span>
-                        Task pengguna akan muncul di sini.
+                        User tasks will appear here.
                       </span>
                     </div>
                   </td>
@@ -1444,9 +1593,8 @@ function AdminDashboard({
                     <td>
                       <div className="task-title-cell">
                         <strong>{task.title}</strong>
-
                         <span>
-                          {task.description || 'Tidak ada deskripsi'}
+                          {task.description || 'No description available'}
                         </span>
                       </div>
                     </td>
@@ -1477,8 +1625,8 @@ function AdminDashboard({
         />
 
         <p className="table-footnote">
-          Menampilkan {tasks.length} dari {pagination.total || 0} task.
-          Admin hanya memiliki akses baca.
+          Showing {tasks.length} of {pagination.total || 0} tasks.
+          Admin has read-only access.
         </p>
       </section>
     </>

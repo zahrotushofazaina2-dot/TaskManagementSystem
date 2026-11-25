@@ -6,9 +6,9 @@ import {
   Mail,
   ArrowRight,
   Sparkles,
+  CheckCircle2,
   Eye,
   EyeOff,
-  CheckCircle2,
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
 import './Login.css'
@@ -37,7 +37,16 @@ function AnimeCompanion({ mood }) {
     },
   }
 
+  const mascotImages = {
+    welcome: '/images/mascot/mascot-welcome.png',
+    focus: '/images/mascot/mascot-thinking.png',
+    loading: '/images/mascot/mascot-focus.png',
+    error: '/images/mascot/mascot-sad.png',
+    success: '/images/mascot/mascot-happy.png',
+  }
+
   const current = messages[mood] || messages.welcome
+  const currentImage = mascotImages[mood] || mascotImages.welcome
 
   return (
     <div className={`companion-area companion-${mood}`}>
@@ -56,43 +65,12 @@ function AnimeCompanion({ mood }) {
 
         <div className="anime-character">
           <div className="character-halo" />
-          <div className="character-shadow" />
 
-          <div className="character-body">
-            <div className="character-collar collar-left" />
-            <div className="character-collar collar-right" />
-            <div className="character-tie" />
-          </div>
-
-          <div className="character-neck" />
-
-          <div className="character-face">
-            <div className="character-ear ear-left" />
-            <div className="character-ear ear-right" />
-
-            <div className="character-hair-back" />
-
-            <div className="character-eye eye-left">
-              <span />
-            </div>
-            <div className="character-eye eye-right">
-              <span />
-            </div>
-
-            <div className="character-blush blush-left" />
-            <div className="character-blush blush-right" />
-
-            <div className="character-mouth" />
-
-            <div className="character-hair">
-              <span className="hair-strand strand-one" />
-              <span className="hair-strand strand-two" />
-              <span className="hair-strand strand-three" />
-              <span className="hair-strand strand-four" />
-            </div>
-          </div>
-
-          <div className="character-accessory">✦</div>
+          <img
+            src={currentImage}
+            alt="TaskFlow companion"
+            className="companion-image"
+          />
         </div>
 
         <div className="companion-dialog">
